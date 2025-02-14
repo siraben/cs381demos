@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Machine Learning Demos - Home</title>
+  <style>
+    body {
+      margin: 0;
+      background: #f9f9f9;
+      font-family: sans-serif;
+      color: #333;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem 1rem;
+    }
+    h1 {
+      margin-bottom: 1rem;
+    }
+    .demo-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+    .demo-list li {
+      margin: 1rem 0;
+      background: #fff;
+      border-radius: 0.5rem;
+      padding: 1rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .demo-list li h2 {
+      margin-top: 0;
+    }
+    .demo-list li a {
+      color: #0066cc;
+      text-decoration: none;
+    }
+    .demo-list li a:hover {
+      text-decoration: underline;
+    }
+    p {
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Machine Learning Demos - Home</h1>
+    <p>Welcome! Below are links to three demos illustrating gradient descent, line search, and 2D optimization. Click any to explore.</p>
+
+    <ul class="demo-list">
+
+      <li>
+        <h2><a href="bowl.html">2D Backtracking Line Search (Multiple Surfaces)</a></h2>
+        <p>
+          Explore how gradient descent with a backtracking line search can adaptively find a suitable 
+          step size. You'll see multiple surfaces (a simple bowl, double well, and four well), trial points 
+          for each iteration, and the final accepted point with its learning rate.
+        </p>
+      </li>
+
+      <li>
+        <h2><a href="gradient.html">Gradient Descent on 2D Wells</a></h2>
+        <p>
+          Pick from three different 2D functions (with one or more minima) and watch standard gradient descent. 
+          This shows how the choice of learning rate affects convergence and where the algorithm ends up.
+        </p>
+      </li>
+
+      <li>
+        <h2><a href="line.html">Line Search Demo: Finding the Learning Rate</a></h2>
+        <p>
+          A 1D example focusing on the backtracking line search mechanism and the Armijo condition. 
+          See how the algorithm halts overshoot by halving the step size whenever the sufficient decrease 
+          criterion isn't met.
+        </p>
+      </li>
+
+    </ul>
+  </div>
+</body>
+</html>
