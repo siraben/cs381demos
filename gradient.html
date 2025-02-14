@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Gradient Descent on 2D Wells</title>
+
+  <!-- Plotly for 2D contour plots -->
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+  <!-- MathJax for equation rendering -->
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      background: #fafafa;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: #333;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1rem;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h1 {
+      margin: 0.5rem;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+    .control-box {
+      background: #fff;
+      padding: 0.75rem 1rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 0 6px rgba(0,0,0,0.1);
+    }
+    label {
+      font-weight: 600;
+      margin-right: 0.5rem;
+    }
+    select, button {
+      cursor: pointer;
+      margin: 0.25rem 0;
+    }
+    input[type=range] {
+      cursor: pointer;
+      margin-top: 0.25rem;
+    }
+    .plot-container {
+      width: 700px; 
+      max-width: 90vw;
+      height: 600px; 
+      background: #fff;
+      box-shadow: 0 0 8px rgba(0,0,0,0.1);
+      border-radius: 0.5rem;
+      overflow: hidden;
+    }
+    .footer {
+      margin: 1rem;
+      font-size: 0.9em;
+      color: #555;
+      text-align: center;
+      max-width: 800px;
+    }
+    #equationBlock {
+      background: #fff;
+      padding: 0.75rem 1rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 0 6px rgba(0,0,0,0.1);
+      margin-bottom: 1rem;
+      max-width: 800px;
+    }
+    #equationBlock p {
+      margin: 0.5rem 0;
+    }
+    #notesBlock {
+      background: #fff;
+      padding: 0.75rem 1rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 0 6px rgba(0,0,0,0.1);
+      margin-top: 1rem;
+      max-width: 800px;
+    }
+    #notesBlock p {
+      margin: 0.5rem 0;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Gradient Descent on 2D Wells</h1>
+  <p>Pick a function with one or more minima, and watch gradient descent in action.</p>
+
+  <!-- Equation block (renders LaTeX for the chosen function) -->
+  <div id="equationBlock"></div>
+
+  <div class="controls">
+    <div class="control-box">
+      <label for="surfaceSelect">Surface:</label><br/>
+      <select id="surfaceSelect">
+        <option value="singleWell">Single Well (Convex Bowl)</option>
+        <option value="doubleWell">Double Well</option>
+        <option value="fourWell">Four Well</option>
+      </select>
+    </div>
+    <div class="control-box">
+      <label for="lrSlider">Learning Rate:</label><br/>
+      <input type="range" id="lrSlider" min="0.01" max="1.0" step="0.01" value="0.1" />
+      <span id="lrValue">0.10</span>
+    </div>
+    <div class="control-box">
+      <button id="startBtn">Start</button>
+      <button id="stopBtn">Stop</button>
+      <button id="stepBtn">Step</button>
+      <button id="resetBtn">Reset</button>
+    </div>
+  </div>
+
+  <div id="plot" class="plot-container"></div>
+
+  <div id="notesBlock">
+    <h3>What is Happening Here?</h3>
+    <p>
+      Each function \( f(w_0, w_1) \) has one or more minima in the 2D plane:
+    </p>
+    <ul>
+      <li>
+        <strong>Single Well (Convex Bowl):</strong>
+        The function is \( w_0^2 + w_1^2 \), with a single global minimum at (0,0).
+        Because it is convex, gradient descent will always converge to (0,0).
+      </li>
+      <li>
+        <strong>Double Well:</strong>
+        \( (w_0^2 - 1)^2 + w_1^2 \) has two global minima at (\(\pm1\), 0).
+        Gradient descent will converge to whichever well you start in (depending on the random initialization and learning rate).
+      </li>
+      <li>
+        <strong>Four Well:</strong>
+        \( (w_0^2 - 1)^2 + (w_1^2 - 1)^2 \) has four minima at (\(\pm1\),\(\pm1\)).
+        The function is non-convex, so you might end up in any of these four “wells.”
+      </li>
+    </ul>
+    <p>
+      We color the plane by the “height” \( f(w_0, w_1) \), using a top-down contour plot. Warm colors represent higher function values, and cooler colors represent lower values.
+    </p>
+    <p>
+      <strong>Gradient Descent:</strong> 
+      On each iteration (step), we compute the partial derivatives \( \frac{\partial f}{\partial w_0}, \frac{\partial f}{\partial w_1} \), then update:
+      \[
+        w_0 \gets w_0 - \alpha \frac{\partial f}{\partial w_0}, 
+        \quad 
+        w_1 \gets w_1 - \alpha \frac{\partial f}{\partial w_1},
+      \]
+      where \( \alpha \) is the learning rate selected by the slider.
+    </p>
+    <p>
+      The red path follows the iterative changes to \((w_0,w_1)\). If the learning rate is too high, the updates may overshoot or diverge; if it is too low, convergence will be slow but more controlled.
+    </p>
+  </div>
+
+  <div class="footer">
+    <em>Created with Plotly for visualization and MathJax for equation rendering. 
+    Try different surfaces and learning rates to see how gradient descent behaves.</em>
+  </div>
+</div>
+
+<script>
+// ---------------------------------------------------------
+// 1) DEFINE THE SURFACES
+const surfaces = {
+  singleWell: {
+    name: "Single Well (Convex Bowl)",
+    eq: "$f(w_0, w_1) = w_0^2 + w_1^2$",
+    range: [-3, 3],
+    step: 0.1,
+    f: (w0, w1) => (w0*w0 + w1*w1),
+    grad: (w0, w1) => [2*w0, 2*w1]
+  },
+  doubleWell: {
+    name: "Double Well",
+    eq: "$f(w_0, w_1) = (w_0^2 - 1)^2 + w_1^2$",
+    range: [-2, 2],
+    step: 0.05,
+    f: (w0, w1) => {
+      const part = (w0*w0 - 1);
+      return part*part + w1*w1;
+    },
+    grad: (w0, w1) => {
+      const gw0 = 4*w0*(w0*w0 - 1); // derivative wrt w0
+      const gw1 = 2*w1;            // derivative wrt w1
+      return [gw0, gw1];
+    }
+  },
+  fourWell: {
+    name: "Four Well",
+    eq: "$f(w_0, w_1) = (w_0^2 - 1)^2 + (w_1^2 - 1)^2$",
+    range: [-2, 2],
+    step: 0.05,
+    f: (w0, w1) => {
+      const p0 = (w0*w0 - 1);
+      const p1 = (w1*w1 - 1);
+      return p0*p0 + p1*p1;
+    },
+    grad: (w0, w1) => {
+      // partial wrt w0: 4 w0 (w0^2 -1)
+      // partial wrt w1: 4 w1 (w1^2 -1)
+      const gw0 = 4*w0*(w0*w0 - 1);
+      const gw1 = 4*w1*(w1*w1 - 1);
+      return [gw0, gw1];
+    }
+  }
+};
+
+// HTML elements
+const eqBlock = document.getElementById("equationBlock");
+const surfaceSelect = document.getElementById("surfaceSelect");
+const lrSlider = document.getElementById("lrSlider");
+const lrValue = document.getElementById("lrValue");
+const startBtn = document.getElementById("startBtn");
+const stopBtn = document.getElementById("stopBtn");
+const stepBtn = document.getElementById("stepBtn");
+const resetBtn = document.getElementById("resetBtn");
+
+// Plotly data references
+let pathTrace = null;
+let contourTrace = null;
+let layout = {
+  title: '',
+  xaxis: {title: 'w0'},
+  yaxis: {title: 'w1'}
+};
+
+// Gradient Descent / Timer
+let isRunning = false;
+let intervalID = null;
+let w0 = 0.0, w1 = 0.0;  // current parameters
+let pathX = [];
+let pathY = [];
+let iteration = 0;
+let currentSurfaceKey = "singleWell";
+
+// ---------------------------------------------------------
+// 2) GENERATE CONTOUR DATA
+function generateContourData(surfaceKey) {
+  const surf = surfaces[surfaceKey];
+  const [mn, mx] = [surf.range[0], surf.range[1]];
+  const step = surf.step;
+  
+  const w0_vals = [];
+  for (let v = mn; v <= mx + 1e-9; v += step) {
+    w0_vals.push(v);
+  }
+  const w1_vals = [];
+  for (let v = mn; v <= mx + 1e-9; v += step) {
+    w1_vals.push(v);
+  }
+  
+  const zData = [];
+  for (let i=0; i<w1_vals.length; i++){
+    const row = [];
+    for (let j=0; j<w0_vals.length; j++){
+      row.push(surf.f(w0_vals[j], w1_vals[i]));
+    }
+    zData.push(row);
+  }
+  
+  contourTrace = {
+    x: w0_vals,
+    y: w1_vals,
+    z: zData,
+    type: 'contour',
+    colorscale: 'Viridis',
+    contours: {
+      coloring: 'heatmap',
+      showlines: true
+    },
+    opacity: 0.9,
+    name: surf.name
+  };
+}
+
+// ---------------------------------------------------------
+// 3) UPDATE PLOT (REDRAW WITH NEW CONTOUR + CLEAR PATH)
+function updatePlot(surfaceKey) {
+  generateContourData(surfaceKey);
+  
+  pathTrace = {
+    x: [],
+    y: [],
+    mode: 'lines+markers',
+    line: {color: 'red', width: 2},
+    marker: {color: 'red', size: 5},
+    name: 'GD Path'
+  };
+  
+  Plotly.newPlot('plot', [contourTrace, pathTrace], {
+    title: surfaces[surfaceKey].name,
+    xaxis: {title: 'w0', range: [surfaces[surfaceKey].range[0], surfaces[surfaceKey].range[1]]},
+    yaxis: {title: 'w1', range: [surfaces[surfaceKey].range[0], surfaces[surfaceKey].range[1]]}
+  });
+}
+
+// ---------------------------------------------------------
+// 4) GRADIENT DESCENT STEP
+function gdStep() {
+  iteration++;
+  const alpha = parseFloat(lrSlider.value);
+  const grad = surfaces[currentSurfaceKey].grad(w0, w1);
+  w0 -= alpha*grad[0];
+  w1 -= alpha*grad[1];
+  
+  pathX.push(w0);
+  pathY.push(w1);
+  
+  Plotly.restyle('plot', {
+    x: [pathX],
+    y: [pathY]
+  }, [1]); // update path trace
+}
+
+// ---------------------------------------------------------
+// 5) START/STOP/STEP/RESET
+function startGD() {
+  if (!isRunning) {
+    isRunning = true;
+    intervalID = setInterval(gdStep, 500);
+  }
+}
+function stopGD() {
+  if (isRunning) {
+    isRunning = false;
+    clearInterval(intervalID);
+  }
+}
+function stepGD() {
+  if (!isRunning) {
+    gdStep();
+  }
+}
+
+function resetParams() {
+  stopGD();
+  iteration = 0;
+  // random init in [range[0], range[1]]
+  const rng = surfaces[currentSurfaceKey].range;
+  const rngW = rng[1] - rng[0];
+  w0 = rng[0] + rngW*Math.random();
+  w1 = rng[0] + rngW*Math.random();
+  
+  pathX = [w0];
+  pathY = [w1];
+  updatePlot(currentSurfaceKey);
+}
+
+// ---------------------------------------------------------
+// 6) SURFACE SELECTION & MATHJAX
+function setSurface(sKey) {
+  currentSurfaceKey = sKey;
+  // Display the LaTeX equation
+  const s = surfaces[sKey];
+  document.getElementById("equationBlock").innerHTML = `
+    <p><strong>${s.name}:</strong></p>
+    <p>${s.eq}</p>
+    <p>We pick a random start in [${s.range[0]}, ${s.range[1]}]^2 
+       and update (w<sub>0</sub>, w<sub>1</sub>) by subtracting 
+       \\( \\alpha \\nabla f(w_0, w_1) \\).</p>
+  `;
+  MathJax.typeset(); // re-render math
+  resetParams();
+}
+
+// ---------------------------------------------------------
+// 7) UI WIRING
+surfaceSelect.addEventListener('change', (e) => {
+  setSurface(e.target.value);
+});
+lrSlider.addEventListener('input', () => {
+  lrValue.textContent = parseFloat(lrSlider.value).toFixed(2);
+});
+startBtn.onclick = startGD;
+stopBtn.onclick = stopGD;
+stepBtn.onclick = stepGD;
+resetBtn.onclick = resetParams;
+
+// ---------------------------------------------------------
+// 8) INITIALIZE
+setSurface('singleWell'); // default on load
+</script>
+</body>
+</html>

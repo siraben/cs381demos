@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>2D Backtracking Line Search (Multiple Surfaces, Displaying Alpha)</title>
+
+  <!-- Plotly for contour plots -->
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+  <!-- MathJax for equation rendering -->
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      background: #fafafa;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: #333;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1rem;
+    }
+    h1 {
+      margin: 0.5rem;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+    .control-box {
+      background: #fff;
+      padding: 0.75rem 1rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 0 6px rgba(0,0,0,0.1);
+      min-width: 180px;
+    }
+    label {
+      font-weight: 600;
+      margin-right: 0.5rem;
+    }
+    button, input[type=range], select {
+      cursor: pointer;
+      margin: 0.25rem 0;
+    }
+    input[type=range] {
+      width: 100%;
+    }
+    .plot-container {
+      width: 700px;
+      max-width: 90vw;
+      height: 600px;
+      background: #fff;
+      box-shadow: 0 0 8px rgba(0,0,0,0.1);
+      border-radius: 0.5rem;
+      overflow: hidden;
+    }
+    #explanation {
+      background: #fff;
+      padding: 1rem;
+      margin-top: 1rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 0 6px rgba(0,0,0,0.1);
+      max-width: 800px;
+      line-height: 1.4;
+    }
+    #explanation h3 {
+      margin-top: 0;
+    }
+    #explanation p, #explanation li {
+      margin: 0.5rem 0;
+    }
+    .footer {
+      margin: 1rem;
+      font-size: 0.9em;
+      color: #555;
+      text-align: center;
+    }
+    #equationBlock {
+      background: #fff;
+      padding: 0.75rem 1rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 0 6px rgba(0,0,0,0.1);
+      max-width: 800px;
+      margin-bottom: 1rem;
+    }
+    #equationBlock p {
+      margin: 0.5rem 0;
+    }
+    #alphaDisplay {
+      font-weight: 600;
+      margin-top: 0.5rem;
+      color: #444;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>2D Backtracking Line Search (Multiple Surfaces, Displaying Alpha)</h1>
+  <p>Select a function, set the initial $\alpha_0$ and Armijo $c$, then press “Step.”</p>
+
+  <div id="equationBlock"></div>
+
+  <div class="controls">
+    <div class="control-box">
+      <label for="surfaceSelect">Surface:</label><br/>
+      <select id="surfaceSelect">
+        <option value="singleWell">Single Well (Convex Bowl)</option>
+        <option value="doubleWell">Double Well</option>
+        <option value="fourWell">Four Well</option>
+      </select>
+    </div>
+    <div class="control-box">
+      <label>Initial $\alpha_0$:</label><br/>
+      <input type="range" id="alpha0Slider" min="0.1" max="2.0" step="0.1" value="1.0" />
+      <span id="alpha0Value">1.00</span>
+    </div>
+    <div class="control-box">
+      <label>Armijo $c$:</label><br/>
+      <input type="range" id="cSlider" min="0.1" max="0.9" step="0.1" value="0.5" />
+      <span id="cValue">0.50</span>
+    </div>
+    <div class="control-box">
+      <button id="stepBtn">Step</button>
+      <button id="resetBtn">Reset</button>
+      <div id="alphaDisplay">Current accepted α: --</div>
+    </div>
+  </div>
+
+  <div id="plot" class="plot-container"></div>
+
+  <div id="explanation">
+    <h3>Why do we do a line search to find α?</h3>
+    <p>
+      In gradient descent, we pick a step size (learning rate) $\alpha$ to move from the current
+      point $\mathbf{w}$ in the direction $-\nabla f(\mathbf{w})$. However, choosing a fixed $\alpha$
+      can lead to overshooting (if $\alpha$ is too large) or very slow convergence (if $\alpha$ is too small).
+    </p>
+    <p>
+      A <strong>backtracking line search</strong> dynamically picks a safe step size that ensures
+      <em>sufficient decrease</em> in the function $f$. Concretely, we impose the <em>Armijo condition</em>:
+    </p>
+    <p style="text-align:center; margin:1rem 0">
+      $f(\mathbf{w} + \alpha \mathbf{d}) \;\le\; f(\mathbf{w}) \;-\; c\,\alpha\,\|\nabla f(\mathbf{w})\|^2,$
+    </p>
+    <p>
+      for some $c \in (0,1)$. If the condition is not satisfied, we halve $\alpha$ and try again, repeating
+      until the inequality holds. This method adaptively finds a step size that makes progress 
+      without risking explosive overshoot.
+    </p>
+    <p>
+      In the plot, we mark each trial point for $\alpha$ in <span style="color:gold">gold</span> and 
+      the final accepted point in <span style="color:red">red</span>. 
+      We also display the final accepted $\alpha$ in the UI, so you can see how many times it was halved 
+      from the initial guess $\alpha_0$.
+    </p>
+  </div>
+
+  <div class="footer">
+    <em>Experiment with surfaces, initial $\alpha_0$, and Armijo $c$ to see how line search picks 
+    a suitable step size each iteration.</em>
+  </div>
+</div>
+
+<script>
+// ---------------------------------------------------------
+// 1) SURFACE DEFINITIONS
+
+const surfaces = {
+  singleWell: {
+    name: "Single Well (Convex Bowl)",
+    eq: "$f(w_0,w_1)=w_0^2 + w_1^2$",
+    range: [-3,3],
+    step: 0.1,
+    f: (w0,w1) => w0*w0 + w1*w1,
+    grad: (w0,w1) => [2*w0, 2*w1]
+  },
+  doubleWell: {
+    name: "Double Well",
+    eq: "$f(w_0,w_1)=(w_0^2-1)^2 + w_1^2$",
+    range: [-2,2],
+    step: 0.05,
+    f: (w0,w1) => {
+      const part = (w0*w0 -1);
+      return part*part + w1*w1;
+    },
+    grad: (w0,w1) => {
+      // partial w.r.t w0: 4 w0 (w0^2 -1)
+      // partial w.r.t w1: 2 w1
+      return [4*w0*(w0*w0-1), 2*w1];
+    }
+  },
+  fourWell: {
+    name: "Four Well",
+    eq: "$f(w_0,w_1)=(w_0^2-1)^2 + (w_1^2-1)^2$",
+    range: [-2,2],
+    step: 0.05,
+    f: (w0,w1) => {
+      const p0 = w0*w0 -1;
+      const p1 = w1*w1 -1;
+      return p0*p0 + p1*p1;
+    },
+    grad: (w0,w1) => {
+      // partial w.r.t w0: 4 w0 (w0^2 -1)
+      // partial w.r.t w1: 4 w1 (w1^2 -1)
+      return [4*w0*(w0*w0 -1), 4*w1*(w1*w1 -1)];
+    }
+  }
+};
+
+// HTML elements
+const eqBlock = document.getElementById("equationBlock");
+const surfaceSelect = document.getElementById("surfaceSelect");
+const alpha0Slider = document.getElementById("alpha0Slider");
+const alpha0Value = document.getElementById("alpha0Value");
+const cSlider = document.getElementById("cSlider");
+const cValue = document.getElementById("cValue");
+const stepBtn = document.getElementById("stepBtn");
+const resetBtn = document.getElementById("resetBtn");
+const alphaDisplay = document.getElementById("alphaDisplay");
+
+// Plot data references
+let contourTrace = null;
+let pathTrace = null;
+let trialTrace = null;
+let layout = null;
+
+// Current surface info
+let currentSurfaceKey = "singleWell";
+let w0range = [], w1range = [];
+let zData = [];
+
+// Current point
+let w0=0, w1=0;
+
+// Path arrays
+let pathX = [];
+let pathY = [];
+
+// Trial points arrays
+let trialX = [];
+let trialY = [];
+
+// ---------------------------------------------------------
+// 2) Generate contour data for the chosen surface
+function generateContourData(surfKey) {
+  const surf = surfaces[surfKey];
+  const [mn,mx] = [surf.range[0], surf.range[1]];
+  const st = surf.step;
+
+  w0range = [];
+  for (let v=mn; v<=mx+1e-9; v+=st) {
+    w0range.push(v);
+  }
+  w1range = [];
+  for (let v=mn; v<=mx+1e-9; v+=st) {
+    w1range.push(v);
+  }
+
+  zData = [];
+  for (let i=0; i<w1range.length; i++){
+    const row=[];
+    for (let j=0; j<w0range.length; j++){
+      row.push(surf.f(w0range[j], w1range[i]));
+    }
+    zData.push(row);
+  }
+}
+
+// ---------------------------------------------------------
+// 3) Build the Plotly traces
+function buildPlot() {
+  contourTrace = {
+    x: w0range,
+    y: w1range,
+    z: zData,
+    type: 'contour',
+    colorscale: 'Viridis',
+    contours: {
+      coloring: 'heatmap',
+      showlines: true
+    },
+    opacity: 0.9,
+    name: surfaces[currentSurfaceKey].name
+  };
+
+  pathTrace = {
+    x: [],
+    y: [],
+    mode: 'lines+markers',
+    line: {color:'red', width:2},
+    marker: {color:'red', size:5},
+    name: 'Accepted Steps'
+  };
+
+  trialTrace = {
+    x: [],
+    y: [],
+    mode: 'markers',
+    marker: {color:'gold', size:6, symbol: 'circle-open'},
+    name: 'Trial Points'
+  };
+
+  layout = {
+    title: surfaces[currentSurfaceKey].name,
+    xaxis: {title: 'w0', range:[surfaces[currentSurfaceKey].range[0], surfaces[currentSurfaceKey].range[1]]},
+    yaxis: {title: 'w1', range:[surfaces[currentSurfaceKey].range[0], surfaces[currentSurfaceKey].range[1]]}
+  };
+  Plotly.newPlot('plot', [contourTrace, pathTrace, trialTrace], layout);
+}
+
+// ---------------------------------------------------------
+// 4) Reset random init
+function resetAll() {
+  // random point
+  const rng = surfaces[currentSurfaceKey].range;
+  const rngWidth = rng[1]-rng[0];
+  w0 = rng[0] + rngWidth*Math.random();
+  w1 = rng[0] + rngWidth*Math.random();
+
+  pathX = [w0];
+  pathY = [w1];
+  trialX = [];
+  trialY = [];
+  alphaDisplay.textContent = "Current accepted α: --";
+
+  // Rebuild contour + new path
+  generateContourData(currentSurfaceKey);
+  buildPlot();
+
+  // place initial path point
+  Plotly.restyle('plot', {x:[[w0]], y:[[w1]]}, [1]);
+  Plotly.restyle('plot', {x:[[]], y:[[]]}, [2]);
+}
+
+// ---------------------------------------------------------
+// 5) One iteration with line search
+function lineSearchStep() {
+  const surf = surfaces[currentSurfaceKey];
+  // get gradient
+  const gf = surf.grad(w0, w1);
+  // direction d = -grad
+  const d = [-gf[0], -gf[1]];
+  const gnormSq = gf[0]*gf[0] + gf[1]*gf[1];
+  const fw = surf.f(w0,w1);
+
+  let alpha0 = parseFloat(alpha0Slider.value);
+  const c = parseFloat(cSlider.value);
+
+  trialX = [];
+  trialY = [];
+
+  // Try alpha until Armijo condition
+  let alpha = alpha0;
+  let wTrial = [w0+alpha*d[0], w1+alpha*d[1]];
+  let lhs = surf.f(wTrial[0], wTrial[1]);
+  let rhs = fw - c*alpha*gnormSq;
+
+  while(lhs>rhs) {
+    // record unsuccessful attempt
+    trialX.push(wTrial[0]);
+    trialY.push(wTrial[1]);
+
+    alpha *= 0.5;
+    wTrial = [w0+alpha*d[0], w1+alpha*d[1]];
+    lhs = surf.f(wTrial[0], wTrial[1]);
+    rhs = fw - c*alpha*gnormSq;
+  }
+
+  // record final successful attempt
+  trialX.push(wTrial[0]);
+  trialY.push(wTrial[1]);
+
+  // Accept
+  w0 = wTrial[0];
+  w1 = wTrial[1];
+  pathX.push(w0);
+  pathY.push(w1);
+
+  // Show final alpha
+  alphaDisplay.textContent = "Current accepted α: " + alpha.toFixed(4);
+
+  // update plot
+  Plotly.restyle('plot', {
+    x: [trialX],
+    y: [trialY]
+  }, [2]); // trial trace
+
+  Plotly.restyle('plot', {
+    x: [pathX],
+    y: [pathY]
+  }, [1]); // path trace
+}
+
+// ---------------------------------------------------------
+// 6) Switch surface
+function setSurface(sKey) {
+  currentSurfaceKey = sKey;
+  eqBlock.innerHTML = `
+    <p><strong>${surfaces[sKey].name}:</strong></p>
+    <p>${surfaces[sKey].eq}</p>
+    <p>This surface can have one or more minima. We use backtracking line search to find a suitable step size each iteration.</p>
+  `;
+  MathJax.typeset(); // re-render math
+  resetAll();
+}
+
+// ---------------------------------------------------------
+// 7) Hook up UI
+surfaceSelect.addEventListener('change', (e)=>{
+  setSurface(e.target.value);
+});
+alpha0Slider.addEventListener('input', ()=>{
+  alpha0Value.textContent = parseFloat(alpha0Slider.value).toFixed(2);
+});
+cSlider.addEventListener('input', ()=>{
+  cValue.textContent = parseFloat(cSlider.value).toFixed(2);
+});
+stepBtn.onclick = lineSearchStep;
+resetBtn.onclick = resetAll;
+
+// ---------------------------------------------------------
+// 8) Initialize
+setSurface('singleWell');
+</script>
+</body>
+</html>

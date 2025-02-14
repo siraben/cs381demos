@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Line Search Demo: Finding the Learning Rate</title>
+
+  <!-- Plotly for 1D plotting -->
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+  <!-- MathJax for equations -->
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      background: #fafafa;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: #333;
+    }
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1rem;
+    }
+    h1 {
+      margin: 0.5rem;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 1rem;
+      margin: 1rem 0;
+    }
+    .control-box {
+      background: #fff;
+      padding: 0.75rem 1rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 0 6px rgba(0,0,0,0.1);
+      min-width: 180px;
+    }
+    label {
+      font-weight: 600;
+      margin-right: 0.5rem;
+    }
+    button, input[type=range] {
+      cursor: pointer;
+      margin: 0.25rem 0;
+    }
+    input[type=range] {
+      width: 100%;
+    }
+    .plot-container {
+      width: 800px;
+      max-width: 90vw;
+      height: 500px;
+      background: #fff;
+      box-shadow: 0 0 8px rgba(0,0,0,0.1);
+      border-radius: 0.5rem;
+      overflow: hidden;
+    }
+    #explanation {
+      background: #fff;
+      padding: 1rem;
+      margin-top: 1rem;
+      border-radius: 0.5rem;
+      box-shadow: 0 0 6px rgba(0,0,0,0.1);
+      max-width: 800px;
+      line-height: 1.4;
+    }
+    #explanation h3 {
+      margin-top: 0;
+    }
+    #explanation p, #explanation li {
+      margin: 0.5rem 0;
+    }
+    .footer {
+      margin: 1rem;
+      font-size: 0.9em;
+      color: #555;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Line Search Demo: Finding the Learning Rate</h1>
+
+  <div class="controls">
+    <div class="control-box">
+      <label for="alpha0Slider">Initial $\alpha_0$:</label>
+      <input type="range" id="alpha0Slider" min="0.1" max="2.0" step="0.1" value="1.0" />
+      <span id="alpha0Value">1.00</span>
+    </div>
+    <div class="control-box">
+      <label for="cSlider">Armijo $c$:</label>
+      <input type="range" id="cSlider" min="0.1" max="0.9" step="0.1" value="0.5" />
+      <span id="cValue">0.50</span>
+    </div>
+    <div class="control-box">
+      <button id="stepBtn">Step</button>
+      <button id="resetBtn">Reset</button>
+    </div>
+  </div>
+
+  <div id="plot" class="plot-container"></div>
+
+  <div id="explanation">
+    <h3>How the Line Search Picks $\alpha$</h3>
+    <p>
+      We have a 1D function:
+      $$ f(x) = x^4 - 6x^2 + x + 5. $$
+      Its derivative:
+      $$ f'(x) = 4x^3 - 12x + 1. $$
+    </p>
+    <p>
+      Suppose we are at some $x^{(t)}$. We want to choose a step size $\alpha$ (the learning rate) 
+      for gradient descent:
+      $$ x^{(t+1)} = x^{(t)} - \alpha \, f'(x^{(t)}). $$
+    </p>
+    <p>
+      Instead of picking a fixed $\alpha$, we use the 
+      <strong>backtracking line search</strong> with the 
+      <strong>Armijo condition</strong>:
+    </p>
+    <ul>
+      <li>
+        We start with an <em>initial guess</em> $\alpha_0$ (slider above).
+      </li>
+      <li>
+        We test if
+        $$ f(x^{(t)} - \alpha f'(x^{(t)})) \le
+           f(x^{(t)}) - c \,\alpha\, [f'(x^{(t)})]^2, $$
+        where $c$ (Armijo parameter, typically around 0.5) 
+        is also adjustable above.
+      </li>
+      <li>
+        If the condition <em>fails</em>, we reduce $\alpha$ (often by halving) and test again.
+      </li>
+      <li>
+        Once we find $\alpha$ that satisfies the inequality, we update $x^{(t+1)}$.
+      </li>
+    </ul>
+    <p>
+      In this demo, each time you press <strong>Step</strong>, we:
+      <ol>
+        <li>Compute $g = f'(x)$ at the current point $x$.</li>
+        <li>Try $\alpha_0$ from the slider, and if needed, keep halving 
+            it until the Armijo condition is met.</li>
+        <li>Plot each tested $\alpha$ as a <span style="color:gold">yellow point</span> 
+            on the function graph, showing <em>where we'd land</em> if we used that step size.</li>
+        <li>Use the final accepted $\alpha$ to move to 
+            $x \leftarrow x - \alpha\,g$, plot the updated $x$ as a <span style="color:red">red point</span>.</li>
+      </ol>
+    </p>
+    <p>
+      Press <strong>Reset</strong> to choose a new random initial $x \in [-3,3]$.
+      Adjust $\alpha_0$ or $c$ to see how more or fewer halving steps 
+      may be needed to find a suitable $\alpha$.
+    </p>
+  </div>
+
+  <div class="footer">
+    <em>This example focuses on the 1D line search that determines the step size 
+    to satisfy Armijo's sufficient decrease condition.</em>
+  </div>
+</div>
+
+<script>
+// ------------------------------------------------------------
+// 1) Define the function f(x) = x^4 - 6x^2 + x + 5, derivative f'(x).
+function f(x) {
+  return x*x*x*x - 6*x*x + x + 5;
+}
+function fprime(x) {
+  return 4*x*x*x - 12*x + 1;
+}
+
+// Range for plotting
+const XMIN = -3, XMAX = 3, STEP = 0.01;
+const xValues = [];
+const yValues = [];
+for (let x = XMIN; x <= XMAX+1e-9; x += STEP) {
+  xValues.push(x);
+  yValues.push(f(x));
+}
+
+// Traces for Plotly
+const funcTrace = {
+  x: xValues,
+  y: yValues,
+  mode: 'lines',
+  line: {color: 'blue', width: 2},
+  name: 'f(x)'
+};
+
+// We will have a path trace for final points
+let pathTrace = {
+  x: [],
+  y: [],
+  mode: 'lines+markers',
+  line: {color: 'red', width: 2},
+  marker: {color: 'red', size: 6},
+  name: 'Accepted Steps'
+};
+
+// A trace for tested alpha steps
+let testedTrace = {
+  x: [],
+  y: [],
+  mode: 'markers',
+  marker: {color: 'gold', size: 6, symbol:'circle-open'},
+  name: 'Tested α Steps'
+};
+
+// Plot layout
+let layout = {
+  title: 'Line Search Demo',
+  xaxis: {title: 'x', range: [XMIN, XMAX]},
+  yaxis: {title: 'f(x)'}
+};
+
+// ------------------------------------------------------------
+// 2) Current x, data structures
+let currentX = 0.0;
+let iteration = 0;
+let pathX = [];
+let pathY = [];
+let testedX = [];
+let testedY = [];
+
+// 3) The line search step
+function lineSearchStep() {
+  iteration += 1;
+  const alpha0 = parseFloat(document.getElementById("alpha0Slider").value);
+  const c = parseFloat(document.getElementById("cSlider").value);
+
+  const g = fprime(currentX);
+  const fx = f(currentX);
+
+  let alpha = alpha0;
+  let lhs = f(currentX - alpha*g);
+  let rhs = fx - c*alpha*g*g;
+
+  testedX = [];
+  testedY = [];
+
+  // We'll push tested points in testedX,testedY
+  // so we can plot them as yellow circle-open markers
+  while (lhs > rhs) {
+    // record attempt
+    testedX.push(currentX - alpha*g);
+    testedY.push(lhs);
+
+    alpha *= 0.5;
+    lhs = f(currentX - alpha*g);
+    rhs = fx - c*alpha*g*g;
+  }
+
+  // record the final attempt that succeeded
+  testedX.push(currentX - alpha*g);
+  testedY.push(lhs);
+
+  // update x
+  currentX = currentX - alpha*g;
+
+  pathX.push(currentX);
+  pathY.push(f(currentX));
+
+  // update the plot
+  Plotly.restyle('plot', {
+    x: [testedX],
+    y: [testedY]
+  }, [2]); // testedTrace is index 2
+
+  Plotly.restyle('plot', {
+    x: [pathX],
+    y: [pathY]
+  }, [1]); // pathTrace is index 1
+}
+
+// ------------------------------------------------------------
+// 4) Reset logic
+function resetAll() {
+  iteration = 0;
+  // random init
+  currentX = XMIN + (XMAX - XMIN)*Math.random();
+  pathX = [currentX];
+  pathY = [f(currentX)];
+  testedX = [];
+  testedY = [];
+
+  Plotly.newPlot('plot', [funcTrace,
+                          {
+                            x: pathX, y: pathY,
+                            mode: 'lines+markers',
+                            line: {color: 'red', width: 2},
+                            marker: {color: 'red', size: 6},
+                            name: 'Accepted Steps'
+                          },
+                          {
+                            x: testedX, y: testedY,
+                            mode: 'markers',
+                            marker: {color: 'gold', size: 6, symbol:'circle-open'},
+                            name: 'Tested α Steps'
+                          }
+                         ], layout);
+}
+
+// ------------------------------------------------------------
+// 5) UI hooking
+document.getElementById("stepBtn").onclick = lineSearchStep;
+document.getElementById("resetBtn").onclick = resetAll;
+
+const alpha0Slider = document.getElementById("alpha0Slider");
+const alpha0Value = document.getElementById("alpha0Value");
+alpha0Slider.addEventListener("input", ()=>{
+  alpha0Value.textContent = parseFloat(alpha0Slider.value).toFixed(2);
+});
+
+const cSlider = document.getElementById("cSlider");
+const cValue = document.getElementById("cValue");
+cSlider.addEventListener("input", ()=>{
+  cValue.textContent = parseFloat(cSlider.value).toFixed(2);
+});
+
+// ------------------------------------------------------------
+// 6) Initialize
+Plotly.newPlot('plot', [funcTrace, pathTrace, testedTrace], layout);
+resetAll();
+</script>
+</body>
+</html>
