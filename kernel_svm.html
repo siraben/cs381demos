@@ -111,6 +111,7 @@ const resetBtn = document.getElementById('resetBtn');
 const PLOT_RANGE = [-6, 6];
 let currentDataset = { data: [], labels: [] }; // Store data for SVM training
 let currentRawData = { class1: {x:[],y:[]}, class2:{x:[],y:[]}}; // Store raw points for plotting
+let svmCache = {}; // Cache for SVM results (boundary, SVs, layout)
 
 // --- Data Generation Functions (Modified to produce svm.js format) ---
 
@@ -209,6 +210,35 @@ function trainAndPlotSVM() {
     cValue.textContent = parseFloat(cSlider.value).toFixed(1);
     gammaValue.textContent = parseFloat(gammaSlider.value).toFixed(1);
 
+    const cacheKey = `C=${C}_gamma=${gamma}`;
+
+    // Create Plotly traces for original data points (needed regardless of cache)
+    const traceClass1 = {
+        x: currentRawData.class1.x, y: currentRawData.class1.y, mode: 'markers',
+        marker: { color: 'blue', size: 8, symbol: 'circle' },
+        name: 'Class 1'
+    };
+    const traceClass2 = {
+        x: currentRawData.class2.x, y: currentRawData.class2.y, mode: 'markers',
+        marker: { color: 'red', size: 8, symbol: 'square' },
+        name: 'Class -1'
+    };
+
+    // Check cache
+    if (svmCache[cacheKey]) {
+        console.log(`Using cached result for C=${C.toExponential(2)}, gamma=${gamma.toExponential(2)}`);
+        const cachedResult = svmCache[cacheKey];
+        Plotly.react(plotDiv, [
+            ...cachedResult.boundaryTraces,
+            traceClass1, traceClass2, cachedResult.svTrace
+        ], cachedResult.layout);
+        console.log("Plot updated from cache.");
+        return; // Exit early, using cached data
+    }
+
+    // --- Cache miss: Proceed with training ---
+    console.log(`Cache miss for C=${C.toExponential(2)}, gamma=${gamma.toExponential(2)}. Training SVM...`);
+
     const { data, labels } = currentDataset;
     if (!data || data.length === 0) {
         console.error("No data available to train SVM.");
@@ -232,21 +262,8 @@ function trainAndPlotSVM() {
         return;
     }
 
-
     // Generate grid for decision boundary prediction
     const boundaryTraces = plotDecisionBoundarySVM(svm);
-
-    // Create Plotly traces for original data points
-    const traceClass1 = {
-        x: currentRawData.class1.x, y: currentRawData.class1.y, mode: 'markers',
-        marker: { color: 'blue', size: 8, symbol: 'circle' },
-        name: 'Class 1'
-    };
-    const traceClass2 = {
-        x: currentRawData.class2.x, y: currentRawData.class2.y, mode: 'markers',
-        marker: { color: 'red', size: 8, symbol: 'square' },
-        name: 'Class -1'
-    };
 
     // Plot support vectors (optional, requires accessing svm internals)
     const svTrace = createSVTrace(svm);
@@ -264,6 +281,10 @@ function trainAndPlotSVM() {
         traceClass1, traceClass2, svTrace
     ], layout);
      console.log("Plot updated.");
+
+    // Store result in cache
+    svmCache[cacheKey] = { boundaryTraces, svTrace, layout };
+    console.log(`Stored result in cache for key: ${cacheKey}`);
 }
 
 function createSVTrace(svm) {
@@ -338,9 +359,11 @@ function plotDecisionBoundarySVM(svm) {
     return [heatmapTrace, contourTrace];
 }
 
-
 // Function to generate new data based on selection
 function generateNewData() {
+    console.log("Clearing SVM cache due to new data generation.");
+    svmCache = {}; // Clear the cache
+
     const numPoints = parseInt(numPointsSlider.value);
     const datasetType = datasetSelect.value;
 
