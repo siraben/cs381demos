@@ -3,129 +3,177 @@
 <head>
   <meta charset="UTF-8" />
   <title>Machine Learning Demos - Home</title>
+  <!-- MathJax for equation rendering -->
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
   <style>
     body {
       margin: 0;
-      background: #f9f9f9;
+      background: #f4f7f6; /* Slightly different background */
       font-family: sans-serif;
       color: #333;
     }
     .container {
-      max-width: 800px;
+      max-width: 1200px; /* Wider container for grid */
       margin: 0 auto;
       padding: 2rem 1rem;
     }
     h1 {
       margin-bottom: 1rem;
+      text-align: center;
+      color: #2c3e50;
     }
-    .demo-list {
-      list-style: none;
-      margin: 0;
+    .container > p {
+      text-align: center;
+      margin-bottom: 2rem;
+      color: #555;
+    }
+    .demo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); /* Responsive columns */
+      gap: 1.5rem; /* Space between grid items */
       padding: 0;
+      list-style: none;
     }
-    .demo-list li {
-      margin: 1rem 0;
+    .demo-item {
       background: #fff;
       border-radius: 0.5rem;
-      padding: 1rem;
+      padding: 1.5rem;
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
     }
-    .demo-list li h2 {
+    .demo-item:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+    }
+    .demo-item h2 {
       margin-top: 0;
+      margin-bottom: 0.75rem;
+      font-size: 1.25em;
+      color: #34495e;
     }
-    .demo-list li a {
+    .demo-item a {
       color: #0066cc;
       text-decoration: none;
     }
-    .demo-list li a:hover {
+    .demo-item a:hover {
       text-decoration: underline;
     }
-    p {
+    .demo-item p {
       line-height: 1.5;
+      flex-grow: 1; /* Make description take up space */
+      margin-bottom: 0; /* Remove default bottom margin */
+      font-size: 0.95em;
+      color: #444;
+    }
+    .demo-item p.formula {
+      font-size: 1.1em;
+      color: #555;
+      background-color: #ecf0f1;
+      padding: 0.5rem 0.75rem;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+      text-align: center;
+      flex-grow: 0; /* Don't let formula grow */
+      overflow-x: auto; /* Allow scrolling for long formulas */
     }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Machine Learning Demos - Home</h1>
-    <p>Welcome! Below are links to three demos illustrating gradient descent, line search, and 2D optimization. Click any to explore.</p>
+    <p>Welcome! Explore the interactive machine learning demos below. Click any title to open the demo.</p>
 
-    <ul class="demo-list">
+    <div class="demo-grid">
 
-      <li>
+      <div class="demo-item">
         <h2><a href="gradient.html">Gradient Descent on 2D Wells</a></h2>
+        <p class="formula">\( \mathbf{w}^{(t+1)} = \mathbf{w}^{(t)} - \alpha \nabla f(\mathbf{w}^{(t)}) \)</p>
         <p>
           Pick from three different 2D functions (with one or more minima) and watch standard gradient descent. 
           This shows how the choice of learning rate affects convergence and where the algorithm ends up.
         </p>
-      </li>
+      </div>
 
-      <li>
-        <h2><a href="bowl.html">2D Backtracking Line Search (Multiple Surfaces)</a></h2>
+      <div class="demo-item">
+        <h2><a href="bowl.html">2D Backtracking Line Search</a></h2>
+        <p class="formula">\( f(\mathbf{w} - \alpha \nabla f) \le f(\mathbf{w}) - c \alpha \|\nabla f\|^2 \)</p>
         <p>
           Explore how gradient descent with a backtracking line search can adaptively find a suitable 
-          step size. You'll see multiple surfaces (a simple bowl, double well, and four well), trial points 
+          step size using the Armijo condition. You'll see multiple surfaces and trial points.
           for each iteration, and the final accepted point with its learning rate.
         </p>
-      </li>
+      </div>
 
-      <li>
-        <h2><a href="line.html">Line Search Demo: Finding the Learning Rate</a></h2>
+      <div class="demo-item">
+        <h2><a href="line.html">Line Search (1D)</a></h2>
+        <p class="formula">\( f(x - \alpha f') \le f(x) - c \alpha (f')^2 \)</p>
         <p>
           A 1D example focusing on the backtracking line search mechanism and the Armijo condition. 
           See how the algorithm halts overshoot by halving the step size whenever the sufficient decrease 
           criterion isn't met.
         </p>
-      </li>
+      </div>
 
-      <li>
-        <h2><a href="momentum.html">Momentum Gradient Descent Demo</a></h2>
+      <div class="demo-item">
+        <h2><a href="momentum.html">Momentum Gradient Descent</a></h2>
+        <p class="formula">\( \mathbf{v} \leftarrow \beta \mathbf{v} + \alpha \nabla f(\mathbf{w}); \quad \mathbf{w} \leftarrow \mathbf{w} - \mathbf{v} \)</p>
         <p>
           Illustrates gradient descent with momentum on a simple 2D bowl. See how the momentum term (\(\beta\)) helps accelerate convergence and potentially overshoot.
         </p>
-      </li>
+      </div>
 
-      <li>
-        <h2><a href="accum.html">Gradient Accumulation Demo</a></h2>
+      <div class="demo-item">
+        <h2><a href="accum.html">Gradient Accumulation</a></h2>
+        <p class="formula">\( \mathbf{w} \leftarrow \mathbf{w} - \alpha \frac{1}{K} \sum_{k=1}^K \nabla f_{B_k}(\mathbf{w}) \)</p>
         <p>
           Shows how gradients can be accumulated over several steps before applying a parameter update, effectively simulating a larger batch size. Useful for memory-constrained scenarios.
         </p>
-      </li>
+      </div>
 
-      <li>
-        <h2><a href="svm.html">Support Vector Machine (SVM) Demo</a></h2>
+      <div class="demo-item">
+        <h2><a href="svm.html">Linear SVM</a></h2>
+        <p class="formula">\( \min \frac{1}{2} \|\mathbf{w}\|^2 \text{ s.t. } y_i (\mathbf{w} \cdot \mathbf{x}_i - b) \ge 1 \)</p>
         <p>
-          Visualizes a linear SVM on a 2D dataset. Shows the optimal separating hyperplane, the margins,
-          and the support vectors that define the boundary. You can regenerate data with different point counts
-          and separation margins.
+          Visualizes a linear SVM trained on a 2D dataset. Shows the optimal separating hyperplane, the margins,
+          and the support vectors that define the boundary.
         </p>
-      </li>
+      </div>
 
-      <li>
-        <h2><a href="regularization.html">Regularization Demo (Ridge Path)</a></h2>
+      <div class="demo-item">
+        <h2><a href="regularization.html">Regularization (Ridge Path)</a></h2>
+        <p class="formula">\( \min_{\mathbf{w}} \| \mathbf{y} - \mathbf{Xw} \|^2 + \lambda \| \mathbf{w} \|_2^2 \)</p>
         <p>
           Visualizes the effect of L2 (Ridge) regularization on the coefficients of a simple linear model.
           See how coefficients shrink towards zero as the regularization strength (λ) increases.
         </p>
-      </li>
+      </div>
 
-      <li>
-        <h2><a href="ridge.html">Ridge Regression Demo</a></h2>
+      <div class="demo-item">
+        <h2><a href="ridge.html">Ridge Regression</a></h2>
+        <p class="formula">\( \hat{\mathbf{w}} = (\mathbf{X}^T \mathbf{X} + \lambda \mathbf{I})^{-1} \mathbf{X}^T \mathbf{y} \)</p>
         <p>
           Compares the standard Ordinary Least Squares (OLS) linear fit with a Ridge regression fit on a 1D dataset.
           Adjust the regularization strength (λ) to see how the Ridge line becomes less sensitive to noise.
         </p>
-      </li>
+      </div>
 
-      <li>
-        <h2><a href="kernel_svm.html">Kernel SVM Demo</a></h2>
+      <div class="demo-item">
+        <h2><a href="kernel_svm.html">Kernel SVM</a></h2>
+        <p class="formula">\( K(\mathbf{x}, \mathbf{z}) = \exp(-\gamma \|\mathbf{x} - \mathbf{z}\|^2) \)</p>
         <p>
           Illustrates how Kernel SVMs can classify non-linearly separable data (like circles or moons)
-          by implicitly mapping data to a higher dimension. Shows simulated decision boundaries for different datasets.
+          using the RBF kernel. Shows calculated decision boundaries for different datasets.
         </p>
-      </li>
+      </div>
 
-    </ul>
+    </div>
   </div>
 </body>
 </html>
