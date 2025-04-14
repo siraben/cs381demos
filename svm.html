@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Support Vector Machine (SVM) Demo</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <!-- Link shared CSS -->
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Styles specific to SVM demo */
+    .support-vector-marker {
+      /* Style will be applied via Plotly trace */
+      border: 2px solid black;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Support Vector Machine (SVM) Demo</h1>
+  <p>
+    This page demonstrates a linear Support Vector Machine (SVM) on a simple, linearly separable 2D dataset.
+    The goal of SVM is to find the hyperplane that best separates the two classes of data points while maximizing
+    the margin (the distance between the hyperplane and the nearest data point from either class).
+  </p>
+
+  <div class="controls">
+    <div class="control-box">
+      <label for="numPointsSlider">Number of Points (per class):</label><br/>
+      <input type="range" id="numPointsSlider" min="10" max="100" step="5" value="30" /><br/>
+      <span id="numPointsValue">30</span>
+    </div>
+     <div class="control-box">
+      <label for="marginSlider">Separation Margin:</label><br/>
+      <input type="range" id="marginSlider" min="0.5" max="3.0" step="0.1" value="1.0" /><br/>
+      <span id="marginValue">1.0</span>
+    </div>
+    <div class="control-box">
+      <button id="resetBtn">Generate New Data</button>
+    </div>
+  </div>
+
+  <div id="plot" class="plot-container"></div>
+
+  <div id="explanation">
+    <h3>Visualization Details</h3>
+    <ul>
+      <li>Blue circles and Red squares represent the two classes of data points.</li>
+      <li>The solid black line is the <strong>optimal separating hyperplane</strong> found by the SVM.</li>
+      <li>The dashed black lines represent the <strong>margins</strong>. The distance between these lines is maximized.</li>
+      <li>Data points lying exactly on the margin lines are the <strong>support vectors</strong>. They are shown with a black outline. These are the critical points that define the hyperplane and margins.</li>
+    </ul>
+    <p>
+        Adjust the sliders and regenerate data to see how the number of points and the inherent separation affect the result.
+        This demo simulates the result of a linear SVM; it doesn't perform the actual optimization calculation in the browser.
+    </p>
+  </div>
+
+  <div class="footer">
+    <em>Visualizing a linear SVM with maximized margins and support vectors.</em>
+  </div>
+</div>
+
+<!-- Include shared plot utils for slider setup -->
+<script src="plotUtils.js"></script>
+
+<script>
+// SVM Demo specific script
+
+// UI Elements
+const plotDiv = document.getElementById('plot');
+const numPointsSlider = document.getElementById('numPointsSlider');
+const numPointsValue = document.getElementById('numPointsValue');
+const marginSlider = document.getElementById('marginSlider');
+const marginValue = document.getElementById('marginValue');
+const resetBtn = document.getElementById('resetBtn');
+
+const PLOT_X_RANGE = [-6, 6];
+const PLOT_Y_RANGE = [-6, 6];
+
+// Function to generate random data for two classes
+function generateData(numPointsPerClass, margin) {
+    const data = { class1: { x: [], y: [] }, class2: { x: [], y: [] } };
+
+    // Generate a random line ax + by + c = 0
+    // We normalize a and b such that a^2 + b^2 = 1
+    let a = Math.random() * 2 - 1; // between -1 and 1
+    let b = Math.random() * 2 - 1;
+    const norm = Math.sqrt(a*a + b*b);
+    a /= norm;
+    b /= norm;
+    // Ensure line passes somewhat centrally, adjust c based on range midpoint (0,0)
+    let c = -(a * (Math.random()-0.5)*2 + b * (Math.random()-0.5)*2); // Small random offset from origin
+
+    const points = [];
+
+    // Generate points
+    while(points.length < numPointsPerClass * 2) {
+        let x = PLOT_X_RANGE[0] + Math.random() * (PLOT_X_RANGE[1] - PLOT_X_RANGE[0]);
+        let y = PLOT_Y_RANGE[0] + Math.random() * (PLOT_Y_RANGE[1] - PLOT_Y_RANGE[0]);
+        const distance = a * x + b * y + c;
+
+        // Ensure points are clearly outside the margin for generation
+        const targetMargin = margin / 2.0;
+        const scatter = 0.2 + Math.random() * 1.5; // Add some random distance beyond margin
+
+        if (Math.abs(distance) < targetMargin) { // Point is inside margin, push it out
+            const shift = targetMargin - Math.abs(distance) + scatter;
+            if (distance >= 0) {
+                x += a * shift;
+                y += b * shift;
+            } else {
+                x -= a * shift;
+                y -= b * shift;
+            }
+        } else { // Point outside margin, add scatter
+             if (distance >= 0) {
+                x += a * scatter;
+                y += b * scatter;
+            } else {
+                x -= a * scatter;
+                y -= b * scatter;
+            }
+        }
+
+        // Recalculate distance after potential shift
+        const finalDistance = a * x + b * y + c;
+
+        // Assign class based on side of the line
+        if (finalDistance >= targetMargin) {
+             if (data.class1.x.length < numPointsPerClass) {
+                data.class1.x.push(x);
+                data.class1.y.push(y);
+                points.push({x: x, y: y, class: 1, distance: finalDistance});
+            }
+        } else if (finalDistance <= -targetMargin) {
+            if (data.class2.x.length < numPointsPerClass) {
+                data.class2.x.push(x);
+                data.class2.y.push(y);
+                points.push({x: x, y: y, class: -1, distance: finalDistance});
+            }
+        }
+    }
+
+    return { data, points, lineParams: { a, b, c } };
+}
+
+// Function to find simulated support vectors
+function findSupportVectors(points, a, b, c, margin) {
+    const sv = { class1: { x: [], y: [] }, class2: { x: [], y: [] } };
+    let minDist1 = Infinity;
+    let minDistNeg1 = Infinity;
+
+    points.forEach(p => {
+        const dist = a * p.x + b * p.y + c;
+        if (p.class === 1) {
+            minDist1 = Math.min(minDist1, dist);
+        } else { // class === -1
+            minDistNeg1 = Math.min(minDistNeg1, Math.abs(dist));
+        }
+    });
+
+    // In simulation, we know the intended margin. Let's highlight points *near* that margin.
+    // A real SVM finds points exactly on margin d= +/- 1 (after scaling).
+    // Here, use the *actual* minimum distances found, which define the practical margin.
+    const effectiveMargin1 = minDist1;
+    const effectiveMarginNeg1 = -minDistNeg1;
+    const tolerance = 0.05 * Math.max(effectiveMargin1, Math.abs(effectiveMarginNeg1), 0.1); // Small tolerance
+
+    points.forEach(p => {
+        const dist = a * p.x + b * p.y + c;
+        if (p.class === 1 && Math.abs(dist - effectiveMargin1) < tolerance) {
+            sv.class1.x.push(p.x);
+            sv.class1.y.push(p.y);
+        }
+        if (p.class === -1 && Math.abs(dist - effectiveMarginNeg1) < tolerance) {
+            sv.class2.x.push(p.x);
+            sv.class2.y.push(p.y);
+        }
+    });
+
+    // Return the effective margins found
+    return { sv, marginPos: effectiveMargin1, marginNeg: effectiveMarginNeg1 };
+}
+
+
+// Function to get line points for plotting
+function getLinePoints(a, b, c, xRange) {
+    const x = [];
+    const y = [];
+    const [xMin, xMax] = xRange;
+
+    if (Math.abs(b) > 1e-6) { // Line is not vertical
+        x.push(xMin);
+        y.push((-c - a * xMin) / b);
+        x.push(xMax);
+        y.push((-c - a * xMax) / b);
+    } else { // Line is vertical or near-vertical (x = -c/a)
+        const xVal = -c / a;
+        // Check if vertical line is within plot range (maybe unnecessary)
+        if (xVal >= xMin && xVal <= xMax) {
+             x.push(xVal);
+             y.push(PLOT_Y_RANGE[0]);
+             x.push(xVal);
+             y.push(PLOT_Y_RANGE[1]);
+        } else {
+             // Line outside range, return empty or handle differently
+             // For simplicity, let's skip plotting if vertical line is way out
+             console.warn("Vertical line outside plot range.");
+             return {x: [], y: []};
+        }
+    }
+    return { x, y };
+}
+
+// Main function to generate data and update plot
+function runSVMDemo() {
+    const numPoints = parseInt(numPointsSlider.value);
+    const margin = parseFloat(marginSlider.value);
+
+    const { data, points, lineParams } = generateData(numPoints, margin);
+    const { a, b, c } = lineParams;
+
+    // Find simulated support vectors and effective margins
+    const { sv, marginPos, marginNeg } = findSupportVectors(points, a, b, c, margin);
+
+    // Get points for plotting the separating line and margins
+    const sepLine = getLinePoints(a, b, c, PLOT_X_RANGE);
+    // Margin lines are ax + by + c = +/- actual_margin
+    const marginLinePos = getLinePoints(a, b, c - marginPos, PLOT_X_RANGE);
+    const marginLineNeg = getLinePoints(a, b, c - marginNeg, PLOT_X_RANGE);
+
+    // Create Plotly traces
+    const traceClass1 = {
+        x: data.class1.x, y: data.class1.y, mode: 'markers',
+        marker: { color: 'blue', size: 8, symbol: 'circle' },
+        name: 'Class 1'
+    };
+    const traceClass2 = {
+        x: data.class2.x, y: data.class2.y, mode: 'markers',
+        marker: { color: 'red', size: 8, symbol: 'square' },
+        name: 'Class -1'
+    };
+    const traceSV = {
+        x: sv.class1.x.concat(sv.class2.x),
+        y: sv.class1.y.concat(sv.class2.y),
+        mode: 'markers',
+        marker: {
+            color: 'rgba(0,0,0,0)', // Transparent fill
+            size: 12,
+            line: { color: 'black', width: 2 } // Black outline
+        },
+        name: 'Support Vectors'
+    };
+    const traceSepLine = {
+        x: sepLine.x, y: sepLine.y, mode: 'lines',
+        line: { color: 'black', width: 2 },
+        name: 'Hyperplane'
+    };
+    const traceMarginPos = {
+        x: marginLinePos.x, y: marginLinePos.y, mode: 'lines',
+        line: { color: 'black', width: 1, dash: 'dash' },
+        name: 'Margin'
+    };
+    const traceMarginNeg = {
+        x: marginLineNeg.x, y: marginLineNeg.y, mode: 'lines',
+        line: { color: 'black', width: 1, dash: 'dash' },
+        showlegend: false // Show margin legend only once
+    };
+
+    const layout = {
+        title: 'Linear SVM Visualization',
+        xaxis: { title: 'Feature 1', range: PLOT_X_RANGE, zeroline: false },
+        yaxis: { title: 'Feature 2', range: PLOT_Y_RANGE, zeroline: false, scaleanchor: "x", scaleratio: 1 },
+        showlegend: true,
+        legend: { x: 1, y: 0.5 }
+    };
+
+    Plotly.newPlot(plotDiv, [
+        traceClass1, traceClass2, traceSV,
+        traceSepLine, traceMarginPos, traceMarginNeg
+    ], layout);
+}
+
+// Setup UI Controls
+setupSlider('numPointsSlider', 'numPointsValue', true, runSVMDemo);
+setupSlider('marginSlider', 'marginValue', false, runSVMDemo);
+resetBtn.addEventListener('click', runSVMDemo);
+
+// Initial Run
+runSVMDemo();
+
+</script>
+</body>
+</html> 
