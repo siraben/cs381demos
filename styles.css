@@ -51,12 +51,24 @@ input[type=range] {
   border-radius: 0.5rem;
   overflow: hidden;
 }
+
+.back-link {
+  /* Style for the 'Back to Homepage' link container */
+  margin-top: 20px; /* Space above the link */
+  margin-bottom: 15px; /* Space below the link */
+  font-size: 0.9em; /* Slightly smaller font */
+  text-align: center; /* Center the link within the container */
+  width: 100%; /* Ensure it takes width for centering */
+}
+
 .footer {
   margin: 1rem;
   font-size: 0.9em;
   color: #555;
   text-align: center;
   max-width: 800px; /* Added for gradient/bowl demos */
+  margin-top: 30px;
+  padding-top: 15px;
 }
 p {
   line-height: 1.4;
