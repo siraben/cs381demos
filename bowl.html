@@ -30,8 +30,6 @@
   <h1>2D Backtracking Line Search (Multiple Surfaces, Displaying Alpha)</h1>
   <p>Select a function, set the initial $\alpha_0$ and Armijo $c$, then press "Step."</p>
 
-  <div id="equationBlock"><p>$f(w_0, w_1) = w_0^2 + w_1^2$</p></div>
-
   <div class="controls">
     <div class="control-box">
       <label for="surfaceSelect">Surface:</label><br/>
@@ -61,6 +59,8 @@
   <div id="plot" class="plot-container"></div>
 
   <div id="explanation">
+    <h3>Selected Function</h3>
+    <div id="equationDisplay"><p>$f(w_0, w_1) = w_0^2 + w_1^2$</p></div>
     <h3>Why do we do a line search to find α?</h3>
     <p>
       In gradient descent, we pick a step size (learning rate) $\alpha$ to move from the current
@@ -72,16 +72,18 @@
       <em>sufficient decrease</em> in the function $f$. Concretely, we impose the <em>Armijo condition</em>:
     </p>
     <p style="text-align:center; margin:1rem 0">
-      $f(\mathbf{w} - \alpha \nabla f(\mathbf{w})) \;\le\; f(\mathbf{w}) \;-\; c\,\alpha\,\|\nabla f(\mathbf{w})\|^2,$
+      $f(\mathbf{w}^{(t)} - \alpha \nabla f(\mathbf{w}^{(t)})) \;\le\; f(\mathbf{w}^{(t)}) \;-\; c\,\alpha\,\|\nabla f(\mathbf{w}^{(t)})\|^2,$
     </p>
     <p>
-      for some $c \in (0,1)$. If the condition is not satisfied, we halve $\alpha$ (typically $\alpha \leftarrow \alpha/2$) and try again, repeating
-      until the inequality holds. This method adaptively finds a step size that makes progress
-      without risking explosive overshoot.
+      where \(\mathbf{w}^{(t)}\) is the current point, \(\nabla f(\mathbf{w}^{(t)})\) is the gradient at that point, \(\|\nabla f(\mathbf{w}^{(t)})\|^2\) is its squared norm, and \(c \in (0,1)\) is a parameter (often 0.5). If the condition is not satisfied, we reduce \(\alpha\) (typically \(\alpha \leftarrow \rho \alpha\) with \(\rho \in (0,1)\), often \(\rho = 0.5\) for halving) and test again, repeating until the inequality holds. This method adaptively finds a step size that makes progress without risking explosive overshoot.
     </p>
     <p>
-      In the plot, we mark each trial point for $\alpha$ in <span style="color:#FFBF00">gold</span> (via markers) and
-      the final accepted point in <span style="color:red">red</span>.
+      Once a suitable \(\alpha\) is found, the update is performed:
+      \[ \mathbf{w}^{(t+1)} = \mathbf{w}^{(t)} - \alpha \nabla f(\mathbf{w}^{(t)}) \]
+    </p>
+    <p>
+      In the plot, we mark each trial point for $\alpha$ (i.e., \(\mathbf{w}^{(t)} - \alpha_{\text{trial}} \nabla f(\mathbf{w}^{(t)})\)) in <span style="color:#FFBF00">gold</span> (via markers) and
+      the final accepted point \(\mathbf{w}^{(t+1)}\) in <span style="color:red">red</span>.
       We also display the final accepted $\alpha$ in the UI, so you can see how many times it was halved
       from the initial guess $\alpha_0$.
     </p>
@@ -101,7 +103,7 @@
 <script>
 // ---------------------------------------------------------
 // HTML elements
-const eqBlock = document.getElementById("equationBlock");
+const eqDisplay = document.getElementById("equationDisplay");
 const surfaceSelect = document.getElementById("surfaceSelect");
 const alpha0Slider = document.getElementById("alpha0Slider");
 const alpha0Value = document.getElementById("alpha0Value");
@@ -133,9 +135,9 @@ function updateSurfacePlot() {
   const surface = getCurrentSurface();
 
   // Update equation block
-  eqBlock.innerHTML = `<p>${surface.eq}</p>`;
+  eqDisplay.innerHTML = `<p>${surface.eq}</p>`;
   if (window.MathJax && window.MathJax.typesetPromise) {
-    window.MathJax.typesetPromise([eqBlock]);
+    window.MathJax.typesetPromise([eqDisplay]);
   }
 
   // Generate new data

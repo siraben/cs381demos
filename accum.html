@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Gradient Accumulation Demo</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <!-- MathJax for equation rendering -->
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+  <!-- Link shared CSS -->
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Keep any styles specific ONLY to this page, if necessary */
+    /* (None needed for now) */
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Gradient Accumulation Demo</h1>
+  <p>
+    This page shows how we might accumulate gradients over multiple steps before updating 
+    the parameters, effectively simulating a larger batch in memory-limited contexts.
+  </p>
+
+  <div class="controls">
+    <div class="control-box">
+      <label>Learning Rate (α):</label><br/>
+      <input type="range" id="lrSlider" min="0.01" max="1.0" step="0.01" value="0.1" /><br/>
+      <span id="lrValue">0.10</span>
+    </div>
+    <div class="control-box">
+      <label>Accum Steps:</label><br/>
+      <input type="range" id="accSlider" min="1" max="10" step="1" value="5" /><br/>
+      <span id="accValue">5</span>
+    </div>
+    <div class="control-box">
+      <button id="stepBtn">Step</button>
+      <button id="resetBtn">Reset</button>
+    </div>
+  </div>
+
+  <div id="plot" class="plot-container"></div>
+
+  <div id="explanation">
+    <h3>Gradient Accumulation</h3>
+    <p>
+        In standard mini-batch gradient descent, we compute the gradient \(\nabla f_B(\mathbf{w})\) using a batch \(B\) of data and update:
+        \[ \mathbf{w}^{(t+1)} = \mathbf{w}^{(t)} - \alpha \nabla f_B(\mathbf{w}^{(t)}) \]
+    </p>
+    <p>
+        If we want to simulate a larger effective batch size \(K \times |B|\) but only have memory for mini-batches of size \(|B|\), we can use gradient accumulation. Over \(K\) steps (controlled by "Accum Steps" slider), we compute gradients on \(K\) different mini-batches \(B_1, B_2, \dots, B_K\) using the <em>same</em> parameters \(\mathbf{w}^{(t)}\). We accumulate these gradients:
+        \[ \mathbf{g}_{\text{accum}} = \sum_{k=1}^K \nabla f_{B_k}(\mathbf{w}^{(t)}) \]
+        Then, we perform a single update using the average gradient:
+        \[ \mathbf{w}^{(t+1)} = \mathbf{w}^{(t)} - \alpha \frac{1}{K} \mathbf{g}_{\text{accum}} = \mathbf{w}^{(t)} - \alpha \left( \frac{1}{K} \sum_{k=1}^K \nabla f_{B_k}(\mathbf{w}^{(t)}) \right) \]
+        This is mathematically equivalent to computing the gradient over the larger effective batch \(B_{\text{eff}} = B_1 \cup B_2 \cup \dots \cup B_K\), assuming the loss function is an average over the batch samples.
+    </p>
+     <p>
+        In this demo, we simulate the mini-batch gradients \(\nabla f_{B_k}\) by adding noise to the true gradient of \(w_0^2+w_1^2\).
+    </p>
+  </div>
+
+  <div class="footer">
+    <em>Gradient Accumulation in a 2D environment — gather multiple "mini-batch" gradients 
+    before applying an update.</em>
+  </div>
+</div>
+
+<!-- Include shared JS utilities -->
+<script src="plotUtils.js"></script>
+
+<script>
+// ------------------------------------------------------------
+// Specifics for this demo: Gradient Accumulation
+// Simulate f(w0,w1)=w0^2+w1^2, but with noisy gradients.
+// Accumulate gradients for `accumSteps` before updating.
+
+const PLOT_RANGE = [-3, 3];
+const PLOT_STEP = 0.1;
+const GRAD_NOISE = 0.3;
+
+function f(w0,w1){
+  return w0*w0 + w1*w1;
+}
+
+function grad(w0,w1){
+  return [
+    2*w0 + GRAD_NOISE*(Math.random()-0.5),
+    2*w1 + GRAD_NOISE*(Math.random()-0.5)
+  ];
+}
+
+// Generate plot data using utility
+const gridData = generateGridData(f, PLOT_RANGE, PLOT_STEP);
+
+// Create Plotly traces using utilities
+const contourTrace = createContourTrace(gridData, 'Viridis', 0.9, 'Bowl');
+// Path trace created/updated in resetAll
+
+// Create layout using utility
+const layout = createLayout('Gradient Accumulation in 2D', PLOT_RANGE);
+
+// State variables
+let w0=0, w1=0;
+let pathX=[], pathY=[];
+let accumCount=0;
+let accumGrad=[0,0]; // Store sum of grads
+
+function resetAll(){
+  w0 = getRandomStart(PLOT_RANGE);
+  w1 = getRandomStart(PLOT_RANGE);
+  pathX = [w0];
+  pathY = [w1];
+  accumCount = 0;
+  accumGrad = [0,0];
+
+  // Create initial path trace
+  const pathTrace = createPathTrace(pathX, pathY);
+
+  // Initialize plot using utility
+  plotInitial('plot', [contourTrace, pathTrace], layout);
+}
+
+// Each "step" simulates one mini-batch worth of grad.
+// If we've accumulated enough, we apply the update.
+function accumStep(){
+  const alpha = parseFloat(document.getElementById('lrSlider').value);
+  const accumSteps = parseInt(document.getElementById('accSlider').value);
+
+  // Get a "stochastic" gradient
+  const g = grad(w0,w1);
+  accumGrad[0] += g[0];
+  accumGrad[1] += g[1];
+  accumCount++;
+
+  if (accumCount >= accumSteps){
+    // Apply update using the average gradient
+    w0 -= alpha * (accumGrad[0] / accumSteps);
+    w1 -= alpha * (accumGrad[1] / accumSteps);
+
+    // Reset accumulators
+    accumCount = 0;
+    accumGrad = [0,0];
+
+    // Update path only when a parameter update happens
+    pathX.push(w0);
+    pathY.push(w1);
+
+    // Update path trace using utility (trace index 1)
+    updatePath('plot', pathX, pathY, 1);
+  }
+}
+
+// Hook up UI
+document.getElementById('stepBtn').onclick = accumStep;
+document.getElementById('resetBtn').onclick = resetAll;
+
+// Setup sliders using utility
+setupSlider('lrSlider', 'lrValue');
+setupSlider('accSlider', 'accValue', true); // true for integer value
+
+// init
+resetAll();
+</script>
+</body>
+</html>

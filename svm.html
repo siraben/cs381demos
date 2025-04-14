@@ -4,6 +4,13 @@
   <meta charset="UTF-8"/>
   <title>Support Vector Machine (SVM) Demo</title>
   <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <!-- MathJax for equation rendering -->
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] } // Add inline math delimiters if needed
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
   <!-- Link shared CSS -->
   <link rel="stylesheet" href="styles.css">
   <style>
@@ -42,9 +49,18 @@
   <div id="plot" class="plot-container"></div>
 
   <div id="explanation">
+    <h3>Linear SVM Formulation</h3>
+    <p>
+        For a linearly separable dataset with points \(\mathbf{x}_i\) and labels \(y_i \in \{-1, +1\}\), a linear SVM aims to find a hyperplane defined by \(\mathbf{w} \cdot \mathbf{x} - b = 0\) that separates the data.
+        The SVM seeks the hyperplane that maximizes the margin, which is equivalent to minimizing \(\|\mathbf{w}\|^2\). The optimization problem is formulated as:
+        \[ \min_{\mathbf{w}, b} \frac{1}{2} \|\mathbf{w}\|^2 \]
+        Subject to the constraints:
+        \[ y_i (\mathbf{w} \cdot \mathbf{x}_i - b) \ge 1 \quad \text{for all } i \]
+        The distance between the hyperplane and the points closest to it (the support vectors) is \(1/\|\mathbf{w}\|\). Maximizing this distance (the margin) is equivalent to minimizing \(\|\mathbf{w}\|^2\).
+    </p>
     <h3>Visualization Details</h3>
     <ul>
-      <li>Blue circles and Red squares represent the two classes of data points.</li>
+      <li>Blue circles (\(y_i = +1\)) and Red squares (\(y_i = -1\)) represent the two classes of data points \(\mathbf{x}_i\).</li>
       <li>The solid black line is the <strong>optimal separating hyperplane</strong> found by the SVM.</li>
       <li>The dashed black lines represent the <strong>margins</strong>. The distance between these lines is maximized.</li>
       <li>Data points lying exactly on the margin lines are the <strong>support vectors</strong>. They are shown with a black outline. These are the critical points that define the hyperplane and margins.</li>

@@ -72,26 +72,29 @@
     <p>
       Instead of picking a fixed $\alpha$, we use the
       <strong>backtracking line search</strong> with the
-      <strong>Armijo condition</strong>:
+      <strong>Armijo sufficient decrease condition</strong>:
     </p>
     <ul>
       <li>
         We start with an <em>initial guess</em> $\alpha_0$ (slider above).
       </li>
       <li>
-        We test if
-        $$ f(x^{(t)} - \alpha f'(x^{(t)})) \le
-           f(x^{(t)}) - c \,\alpha\, [f'(x^{(t)})]^2, $$
-        where $c$ (Armijo parameter, typically around 0.5)
+        We test if the chosen $\alpha$ satisfies:
+        \[ f(x^{(t)} - \alpha f'(x^{(t)})) \le f(x^{(t)}) - c \,\alpha\, [f'(x^{(t)})]^2 \]
+        where \(c \in (0,1)\) (Armijo parameter, typically around 0.5)
         is also adjustable above.
       </li>
       <li>
-        If the condition <em>fails</em>, we reduce $\alpha$ (often by halving) and test again.
+        If the condition <em>fails</em>, we reduce $\alpha$ (e.g., \(\alpha \leftarrow \rho \alpha\) with \(\rho=0.5\)) and test again.
       </li>
       <li>
         Once we find $\alpha$ that satisfies the inequality, we update $x^{(t+1)}$.
       </li>
     </ul>
+    <p>
+      The update step is:
+      \[ x^{(t+1)} = x^{(t)} - \alpha f'(x^{(t)}) \]
+    </p>
     <p>
       In this demo, each time you press <strong>Step</strong>, we:
       <ol>

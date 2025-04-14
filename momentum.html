@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Momentum Gradient Descent Demo</title>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <!-- MathJax for equation rendering -->
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+  <!-- Link shared CSS -->
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Keep any styles specific ONLY to this page, if necessary */
+    /* (None needed for now) */
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Momentum Gradient Descent Demo</h1>
+  <p>
+    This page shows gradient descent with momentum on a 2D function 
+    \((f(w_0,w_1)=w_0^2+w_1^2)\). The momentum term helps us accelerate 
+    past small local slopes and dampen oscillations in "valley"-shaped terrains.
+  </p>
+
+  <div class="controls">
+    <div class="control-box">
+      <label>Learning Rate (α):</label><br/>
+      <input type="range" id="lrSlider" min="0.01" max="1.0" step="0.01" value="0.1" /><br/>
+      <span id="lrValue">0.10</span>
+    </div>
+    <div class="control-box">
+      <label>Momentum (β):</label><br/>
+      <input type="range" id="betaSlider" min="0.0" max="0.99" step="0.01" value="0.9" /><br/>
+      <span id="betaValue">0.90</span>
+    </div>
+    <div class="control-box">
+      <button id="stepBtn">Step</button>
+      <button id="resetBtn">Reset</button>
+    </div>
+  </div>
+
+  <div id="plot" class="plot-container"></div>
+
+  <div id="explanation">
+    <h3>Momentum Update Rule</h3>
+    <p>
+        Standard gradient descent updates parameters \(\mathbf{w}\) using only the current gradient:
+        \[ \mathbf{w}^{(t+1)} = \mathbf{w}^{(t)} - \alpha \nabla f(\mathbf{w}^{(t)}) \]
+    </p>
+    <p>
+        Gradient Descent with Momentum introduces a "velocity" term \(\mathbf{v}\) which accumulates an exponentially decaying moving average of past gradients. The updates become:
+        \[ \mathbf{v}^{(t+1)} = \beta \mathbf{v}^{(t)} + \alpha \nabla f(\mathbf{w}^{(t)}) \]
+        \[ \mathbf{w}^{(t+1)} = \mathbf{w}^{(t)} - \mathbf{v}^{(t+1)} \]
+        Here, \(\alpha\) is the learning rate, and \(\beta\) is the momentum coefficient (typically close to 1, like 0.9). The velocity \(\mathbf{v}\) helps the optimizer continue moving in the prevailing direction and dampens oscillations.
+    </p>
+  </div>
+
+  <div class="footer">
+    <em>Gradient Descent with Momentum in 2D. The velocity helps accelerate 
+    the search and reduce oscillations.</em>
+  </div>
+</div>
+
+<!-- Include shared JS utilities -->
+<script src="plotUtils.js"></script>
+
+<script>
+// ------------------------------------------------------------
+// Specifics for this demo: Momentum GD on f(w0,w1) = w0^2 + w1^2
+// Update rule:
+//   v <- β v + α grad(w)
+//   w <- w - v
+
+const PLOT_RANGE = [-3, 3];
+const PLOT_STEP = 0.1;
+
+function f(w0, w1) {
+  return w0*w0 + w1*w1;
+}
+
+function grad(w0, w1) {
+  return [2*w0, 2*w1]; // No noise here
+}
+
+// Generate plot data using utility
+const gridData = generateGridData(f, PLOT_RANGE, PLOT_STEP);
+
+// Create Plotly traces using utilities
+const contourTrace = createContourTrace(gridData, 'Viridis', 0.9, 'Bowl');
+// Path trace will be created/updated in resetAll
+
+// Create layout using utility
+const layout = createLayout('Momentum Gradient Descent on a 2D Bowl', PLOT_RANGE);
+
+// State variables
+let w0 = 0, w1 = 0;
+let pathX = [], pathY = [];
+let v0 = 0, v1 = 0; // Velocity components
+
+function resetAll() {
+  w0 = getRandomStart(PLOT_RANGE);
+  w1 = getRandomStart(PLOT_RANGE);
+  v0 = 0;
+  v1 = 0;
+  pathX = [w0];
+  pathY = [w1];
+
+  // Create initial path trace
+  const pathTrace = createPathTrace(pathX, pathY);
+
+  // Initialize plot using utility
+  plotInitial('plot', [contourTrace, pathTrace], layout);
+}
+
+function momentumStep() {
+  const alpha = parseFloat(document.getElementById('lrSlider').value);
+  const beta = parseFloat(document.getElementById('betaSlider').value);
+  const g = grad(w0, w1);
+
+  // Update velocity
+  v0 = beta * v0 + alpha * g[0];
+  v1 = beta * v1 + alpha * g[1];
+
+  // Update w
+  w0 -= v0;
+  w1 -= v1;
+
+  pathX.push(w0);
+  pathY.push(w1);
+
+  // Update path trace using utility (trace index 1)
+  updatePath('plot', pathX, pathY, 1);
+}
+
+// Hook UI
+document.getElementById('stepBtn').onclick = momentumStep;
+document.getElementById('resetBtn').onclick = resetAll;
+
+// Setup sliders using utility
+setupSlider('lrSlider', 'lrValue');
+setupSlider('betaSlider', 'betaValue');
+
+// Init
+resetAll();
+</script>
+</body>
+</html>

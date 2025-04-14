@@ -27,9 +27,6 @@
   <h1>Gradient Descent on 2D Wells</h1>
   <p>Pick a function with one or more minima, and watch gradient descent in action.</p>
 
-  <!-- Equation block (renders LaTeX for the chosen function) -->
-  <div id="equationBlock"><p>$f(w_0, w_1) = w_0^2 + w_1^2$</p></div>
-
   <div class="controls">
     <div class="control-box">
       <label for="surfaceSelect">Surface:</label><br/>
@@ -54,7 +51,9 @@
 
   <div id="plot" class="plot-container"></div>
 
-  <div id="notesBlock">
+  <div id="explanation">
+    <h3>Selected Function</h3>
+    <div id="equationDisplay"><p>$f(w_0, w_1) = w_0^2 + w_1^2$</p></div>
     <h3>What is Happening Here?</h3>
     <p>
       Each function \( f(w_0, w_1) \) has one or more minima in the 2D plane:
@@ -81,11 +80,15 @@
     </p>
     <p>
       <strong>Gradient Descent:</strong>
-      On each iteration (step), we compute the partial derivatives \( \frac{\partial f}{\partial w_0}, \frac{\partial f}{\partial w_1} \), then update:
+      On each iteration (step), we compute the partial derivatives \( \frac{\partial f}{\partial w_0}, \frac{\partial f}{\partial w_1} \), which form the gradient vector \( \nabla f = \begin{bmatrix} \partial f / \partial w_0 \\ \partial f / \partial w_1 \end{bmatrix} \). We then update the parameters \( \mathbf{w} = \begin{bmatrix} w_0 \\ w_1 \end{bmatrix} \) by moving in the direction opposite to the gradient:
       \[
-        w_0 \gets w_0 - \alpha \frac{\partial f}{\partial w_0},
+        \mathbf{w}^{(t+1)} = \mathbf{w}^{(t)} - \alpha \nabla f(\mathbf{w}^{(t)})
+      \]
+      Or component-wise:
+      \[
+        w_0^{(t+1)} = w_0^{(t)} - \alpha \frac{\partial f}{\partial w_0} \Big|_{\mathbf{w}^{(t)}},
         \quad
-        w_1 \gets w_1 - \alpha \frac{\partial f}{\partial w_1},
+        w_1^{(t+1)} = w_1^{(t)} - \alpha \frac{\partial f}{\partial w_1} \Big|_{\mathbf{w}^{(t)}},
       \]
       where \( \alpha \) is the learning rate selected by the slider.
     </p>
@@ -108,7 +111,7 @@
 <script>
 // ---------------------------------------------------------
 // HTML elements
-const eqBlock = document.getElementById("equationBlock");
+const eqDisplay = document.getElementById("equationDisplay");
 const surfaceSelect = document.getElementById("surfaceSelect");
 const lrSlider = document.getElementById("lrSlider");
 const lrValue = document.getElementById("lrValue");
@@ -141,9 +144,9 @@ function updateSurfacePlot() {
   const surface = getCurrentSurface();
 
   // Update equation block
-  eqBlock.innerHTML = `<p>${surface.eq}</p>`;
+  eqDisplay.innerHTML = `<p>${surface.eq}</p>`;
   if (window.MathJax && window.MathJax.typesetPromise) {
-    window.MathJax.typesetPromise([eqBlock]);
+    window.MathJax.typesetPromise([eqDisplay]);
   }
 
   // Generate new data
