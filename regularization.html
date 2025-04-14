@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Regularization Demo (Ridge Path)</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <!-- MathJax for equation rendering -->
+    <script>
+      window.MathJax = {
+        tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] }
+      };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+    <!-- Link shared CSS -->
+    <link rel="stylesheet" href="styles.css">
+    <style>
+      /* Specific styles if needed */
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Regularization Demo: Ridge Coefficient Path</h1>
+    <p>
+        This demo shows how L2 (Ridge) regularization affects the coefficients of a linear model.
+        We fit a model \( y \approx w_1 x_1 + w_2 x_2 + b \) to generated data.
+        As the regularization strength \( \lambda \) increases, the coefficients \( w_1 \) and \( w_2 \) are penalized
+        and shrink towards zero.
+    </p>
+
+    <div class="controls">
+        <div class="control-box">
+            <label for="numPointsSlider">Number of Data Points:</label><br/>
+            <input type="range" id="numPointsSlider" min="20" max="200" step="10" value="50" /><br/>
+            <span id="numPointsValue">50</span>
+        </div>
+        <div class="control-box">
+            <label for="noiseSlider">Noise Level:</label><br/>
+            <input type="range" id="noiseSlider" min="0" max="5" step="0.1" value="1.0" /><br/>
+            <span id="noiseValue">1.0</span>
+        </div>
+        <div class="control-box">
+          <button id="resetBtn">Generate New Data</button>
+        </div>
+    </div>
+
+    <div id="plot" class="plot-container" style="height: 500px;"></div>
+
+    <div id="explanation">
+        <h3>Ridge Regression (L2 Regularization)</h3>
+        <p>
+            Linear regression aims to find coefficients \(\mathbf{w}\) that minimize the squared error:
+            \[ \min_{\mathbf{w}} \| \mathbf{y} - \mathbf{Xw} \|^2 \]
+            Ridge regression adds a penalty term based on the squared magnitude of the coefficients (L2 norm):
+            \[ \min_{\mathbf{w}} \| \mathbf{y} - \mathbf{Xw} \|^2 + \lambda \| \mathbf{w} \|_2^2 = \min_{\mathbf{w}} \| \mathbf{y} - \mathbf{Xw} \|^2 + \lambda \sum_{j=1}^{p} w_j^2 \]
+            Here, \(\lambda \ge 0\) is the regularization parameter. Larger \(\lambda\) values impose a stronger penalty, forcing the coefficients to shrink closer to zero.
+            This helps prevent overfitting and can stabilize estimates when features are correlated.
+        </p>
+        <p>
+            The plot shows the values of the coefficients \(w_1\) and \(w_2\) as \(\lambda\) increases (plotted on a log scale for better visualization).
+            Notice how both coefficients tend towards zero for large \(\lambda\).
+        </p>
+        <h4>Note on Lasso (L1 Regularization)</h4>
+        <p>
+            L1 regularization (Lasso) uses a different penalty: \( \lambda \| \mathbf{w} \|_1 = \lambda \sum |w_j| \).
+            While also shrinking coefficients, Lasso has the property of often forcing some coefficients to become <em>exactly</em> zero, effectively performing feature selection. Visualizing its path is slightly more complex.
+        </p>
+    </div>
+
+    <div class="footer">
+        <em>Visualizing the effect of L2 regularization strength (λ) on model coefficients.</em>
+    </div>
+</div>
+
+<!-- Include shared utils -->
+<script src="plotUtils.js"></script>
+<!-- Simple matrix math helpers -->
+<script>
+    // Basic matrix operations (needed for Ridge solution)
+    // Transpose a matrix
+    function transpose(matrix) {
+        if (!matrix || matrix.length === 0) return [];
+        const rows = matrix.length;
+        const cols = matrix[0].length;
+        const T = Array(cols).fill(0).map(() => Array(rows).fill(0));
+        for (let i = 0; i < rows; i++) {
+            for (let j = 0; j < cols; j++) {
+                T[j][i] = matrix[i][j];
+            }
+        }
+        return T;
+    }
+
+    // Multiply two matrices
+    function multiply(A, B) {
+        const rowsA = A.length;
+        const colsA = A[0].length;
+        const rowsB = B.length;
+        const colsB = B[0].length;
+        if (colsA !== rowsB) throw new Error("Matrix dimensions incompatible for multiplication");
+
+        const C = Array(rowsA).fill(0).map(() => Array(colsB).fill(0));
+        for (let i = 0; i < rowsA; i++) {
+            for (let j = 0; j < colsB; j++) {
+                for (let k = 0; k < colsA; k++) {
+                    C[i][j] += A[i][k] * B[k][j];
+                }
+            }
+        }
+        return C;
+    }
+
+    // Invert a 2x2 matrix: [[a, b], [c, d]]
+    function invert2x2(matrix) {
+        if (matrix.length !== 2 || matrix[0].length !== 2) throw new Error("Matrix must be 2x2 for this simple inversion");
+        const [[a, b], [c, d]] = matrix;
+        const det = a * d - b * c;
+        if (Math.abs(det) < 1e-10) throw new Error("Matrix is singular or near-singular");
+        const invDet = 1.0 / det;
+        return [
+            [d * invDet, -b * invDet],
+            [-c * invDet, a * invDet]
+        ];
+    }
+
+     // Invert a general square matrix using Gaussian elimination (simple version)
+     // Note: This is a basic implementation and might not be numerically stable for all cases.
+     function invert(matrix) {
+        const n = matrix.length;
+        if (n === 0 || matrix[0].length !== n) throw new Error("Matrix must be square");
+        if (n === 2) return invert2x2(matrix); // Use specialized version for 2x2
+
+        // Create augmented matrix [matrix | I]
+        const augmented = matrix.map((row, i) => [
+            ...row,
+            ...Array(n).fill(0).map((_, j) => i === j ? 1 : 0)
+        ]);
+
+        // Gaussian elimination to get [I | inverse]
+        for (let i = 0; i < n; i++) {
+            // Find pivot
+            let pivot = i;
+            for (let j = i + 1; j < n; j++) {
+                if (Math.abs(augmented[j][i]) > Math.abs(augmented[pivot][i])) {
+                    pivot = j;
+                }
+            }
+            [augmented[i], augmented[pivot]] = [augmented[pivot], augmented[i]]; // Swap rows
+
+            const divisor = augmented[i][i];
+             if (Math.abs(divisor) < 1e-10) throw new Error("Matrix is singular or near-singular during inversion");
+
+            // Normalize pivot row
+            for (let j = i; j < 2 * n; j++) {
+                augmented[i][j] /= divisor;
+            }
+
+            // Eliminate other rows
+            for (let j = 0; j < n; j++) {
+                if (i !== j) {
+                    const multiplier = augmented[j][i];
+                    for (let k = i; k < 2 * n; k++) {
+                        augmented[j][k] -= multiplier * augmented[i][k];
+                    }
+                }
+            }
+        }
+
+        // Extract inverse matrix
+        const inverse = augmented.map(row => row.slice(n));
+        return inverse;
+    }
+
+    // Add two matrices
+    function add(A, B) {
+        const rows = A.length;
+        const cols = A[0].length;
+        if (rows !== B.length || cols !== B[0].length) throw new Error("Matrix dimensions must match for addition");
+        const C = Array(rows).fill(0).map(() => Array(cols).fill(0));
+        for (let i = 0; i < rows; i++) {
+            for (let j = 0; j < cols; j++) {
+                C[i][j] = A[i][j] + B[i][j];
+            }
+        }
+        return C;
+    }
+
+    // Create identity matrix
+    function identity(n) {
+        const I = Array(n).fill(0).map(() => Array(n).fill(0));
+        for (let i = 0; i < n; i++) I[i][i] = 1;
+        return I;
+    }
+
+    // Scale a matrix
+    function scale(matrix, scalar) {
+        return matrix.map(row => row.map(val => val * scalar));
+    }
+
+</script>
+
+<script>
+// Regularization Demo specific script
+
+// UI Elements
+const plotDiv = document.getElementById('plot');
+const numPointsSlider = document.getElementById('numPointsSlider');
+const numPointsValue = document.getElementById('numPointsValue');
+const noiseSlider = document.getElementById('noiseSlider');
+const noiseValue = document.getElementById('noiseValue');
+const resetBtn = document.getElementById('resetBtn');
+
+// Generate Data for y = w1*x1 + w2*x2 + b + noise
+function generateLinearData(numPoints, noiseStdDev) {
+    // True parameters (can be fixed or randomized)
+    const trueW = [Math.random() * 4 - 2, Math.random() * 4 - 2]; // e.g., [-1.5, 0.8]
+    const trueB = Math.random() * 2 - 1; // e.g., 0.5
+
+    const X = []; // Feature matrix (n x 2)
+    const y = []; // Target vector (n x 1)
+
+    for (let i = 0; i < numPoints; i++) {
+        const x1 = Math.random() * 10 - 5; // Feature 1 range
+        const x2 = Math.random() * 10 - 5; // Feature 2 range
+        // Optional: add some correlation between x1, x2 if desired
+        // const x2 = 0.5 * x1 + (Math.random() * 10 - 5) * 0.5;
+
+        const noise = (Math.random() - 0.5) * 2 * noiseStdDev; // Simplified Gaussian noise
+        const y_i = trueW[0] * x1 + trueW[1] * x2 + trueB + noise;
+
+        X.push([x1, x2]);
+        y.push([y_i]); // Store y as a column vector
+    }
+    return { X, y, trueW, trueB };
+}
+
+// Calculate Ridge coefficients for a given lambda
+// w = (X^T X + lambda * I)^(-1) X^T y
+// Assumes X already has bias term incorporated or we handle it separately.
+// For simplicity, let's center data and ignore bias term in regularization path.
+function calculateRidgeCoeffs(X_centered, y_centered, lambda) {
+    const p = X_centered[0].length; // Number of features
+    const I = identity(p);
+    const Xt = transpose(X_centered);
+    const XtX = multiply(Xt, X_centered);
+    const lambdaI = scale(I, lambda);
+    const term1 = add(XtX, lambdaI);
+    let term1_inv;
+    try {
+         term1_inv = invert(term1); // Use general inversion
+    } catch (e) {
+        console.error("Matrix inversion failed for lambda=", lambda, e);
+        // Handle singularity - return zeros or previous coeffs? Return null.
+        return null;
+    }
+    const term2 = multiply(Xt, y_centered);
+    const w = multiply(term1_inv, term2);
+    return w.map(row => row[0]); // Return as flat array [w1, w2]
+}
+
+// Function to center data (subtract mean)
+function centerData(X, y) {
+    const n = X.length;
+    const p = X[0].length;
+
+    // Calculate means
+    const meanX = Array(p).fill(0);
+    let meanY = 0;
+    for (let i = 0; i < n; i++) {
+        for (let j = 0; j < p; j++) {
+            meanX[j] += X[i][j];
+        }
+        meanY += y[i][0];
+    }
+    meanY /= n;
+    for (let j = 0; j < p; j++) {
+        meanX[j] /= n;
+    }
+
+    // Center data
+    const X_centered = X.map(row => row.map((val, j) => val - meanX[j]));
+    const y_centered = y.map(row => [row[0] - meanY]);
+
+    return { X_centered, y_centered, meanX, meanY };
+}
+
+
+// Main function to generate data and plot paths
+function runRegularizationDemo() {
+    const numPoints = parseInt(numPointsSlider.value);
+    const noiseStdDev = parseFloat(noiseSlider.value);
+
+    const { X, y } = generateLinearData(numPoints, noiseStdDev);
+    const { X_centered, y_centered } = centerData(X, y);
+
+    const lambdas = [];
+    // Generate lambda values on a log scale
+    const minLogLambda = -4; // 10^-4
+    const maxLogLambda = 4; // 10^4
+    const numLambdas = 100;
+    for (let i = 0; i < numLambdas; i++) {
+        const logLambda = minLogLambda + (maxLogLambda - minLogLambda) * i / (numLambdas - 1);
+        lambdas.push(Math.pow(10, logLambda));
+    }
+
+    const coeffs = { w1: [], w2: [] };
+    lambdas.forEach(lambda => {
+        const w = calculateRidgeCoeffs(X_centered, y_centered, lambda);
+        if (w && w.length === 2) {
+             // Assuming 2 features for this specific plot
+            coeffs.w1.push(w[0]);
+            coeffs.w2.push(w[1]);
+        } else if (w) {
+            // Handle case if generateLinearData changes #features
+             console.warn("Unexpected number of coefficients:", w.length);
+        } else {
+            // Handle inversion failure - push NaN or last valid?
+            // Pushing NaN might be best for plotting gaps
+             coeffs.w1.push(NaN);
+             coeffs.w2.push(NaN);
+        }
+    });
+
+    // Create Plotly traces for coefficient paths
+    const traceW1 = {
+        x: lambdas,
+        y: coeffs.w1,
+        mode: 'lines',
+        name: 'w1 (Coefficient for x1)',
+        line: { color: 'blue' }
+    };
+    const traceW2 = {
+        x: lambdas,
+        y: coeffs.w2,
+        mode: 'lines',
+        name: 'w2 (Coefficient for x2)',
+        line: { color: 'red' }
+    };
+
+    const layout = {
+        title: 'Ridge Coefficient Path',
+        xaxis: {
+            title: 'Regularization Strength (λ)',
+            type: 'log',
+            autorange: true
+        },
+        yaxis: {
+            title: 'Coefficient Value',
+            autorange: true,
+            zeroline: true
+        },
+        showlegend: true
+    };
+
+    Plotly.newPlot(plotDiv, [traceW1, traceW2], layout);
+}
+
+// Setup UI Controls
+setupSlider('numPointsSlider', 'numPointsValue', true, runRegularizationDemo);
+setupSlider('noiseSlider', 'noiseValue', false, runRegularizationDemo);
+resetBtn.addEventListener('click', runRegularizationDemo);
+
+// Initial Run
+runRegularizationDemo();
+
+</script>
+</body>
+</html> 

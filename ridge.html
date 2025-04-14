@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Ridge Regression Demo</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <!-- MathJax for equation rendering -->
+    <script>
+      window.MathJax = {
+        tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] }
+      };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+    <!-- Link shared CSS -->
+    <link rel="stylesheet" href="styles.css">
+    <style>
+      /* Specific styles if needed */
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Ridge Regression Demo</h1>
+    <p>
+        This demo illustrates Ridge Regression (linear regression with L2 regularization) on a simple 1D dataset.
+        Compare the standard Ordinary Least Squares (OLS) fit with the Ridge fit as you vary the regularization strength \( \lambda \).
+    </p>
+
+    <div class="controls">
+        <div class="control-box">
+            <label for="numPointsSlider">Number of Data Points:</label><br/>
+            <input type="range" id="numPointsSlider" min="10" max="100" step="5" value="20" /><br/>
+            <span id="numPointsValue">20</span>
+        </div>
+        <div class="control-box">
+            <label for="noiseSlider">Noise Level:</label><br/>
+            <input type="range" id="noiseSlider" min="0" max="5" step="0.1" value="1.0" /><br/>
+            <span id="noiseValue">1.0</span>
+        </div>
+         <div class="control-box">
+            <label for="lambdaSlider">Reg Strength (log λ):</label><br/>
+            <input type="range" id="lambdaSlider" min="-4" max="4" step="0.1" value="-2" /><br/>
+            <span>λ = 10^</span><span id="lambdaValue">-2.0</span>
+        </div>
+        <div class="control-box">
+          <button id="resetBtn">Generate New Data</button>
+        </div>
+    </div>
+
+    <div id="plot" class="plot-container" style="height: 500px;"></div>
+
+    <div id="explanation">
+        <h3>Ridge Regression Objective</h3>
+        <p>
+            Ridge regression modifies the standard linear regression cost function by adding an L2 penalty on the weights \(\mathbf{w}\):
+            \[ \min_{\mathbf{w}, b} \sum_{i=1}^n (y_i - (\mathbf{w} \cdot \mathbf{x}_i + b))^2 + \lambda \| \mathbf{w} \|_2^2 \]
+            For our simple 1D case \( y \approx w x + b \), this becomes:
+            \[ \min_{w, b} \sum_{i=1}^n (y_i - (w x_i + b))^2 + \lambda w^2 \]
+            The \( \lambda \ge 0 \) parameter controls the strength of the regularization.
+        </p>
+        <ul>
+            <li>When \( \lambda = 0 \), Ridge is equivalent to standard OLS linear regression.</li>
+            <li>As \( \lambda \to \infty \), the penalty dominates, forcing the slope \(w\) towards zero (resulting in a horizontal line at the mean of y, after accounting for the intercept b).</li>
+        </ul>
+        <p>
+            Observe how the Ridge regression line (Red) changes as you increase \( \lambda \). It becomes less influenced by individual noisy points and flatter compared to the OLS line (Blue).
+        </p>
+    </div>
+
+    <div class="footer">
+        <em>Comparing OLS linear regression with Ridge regression in 1D.</em>
+    </div>
+</div>
+
+<!-- Include shared utils -->
+<script src="plotUtils.js"></script>
+<!-- Simple matrix math helpers (subset needed) -->
+<script>
+    // --- Matrix helpers needed for OLS/Ridge in 1D+bias --- 
+    // Transpose, Multiply, Add, Scale, Identity, invert2x2
+
+    // Transpose a matrix
+    function transpose(matrix) {
+        if (!matrix || matrix.length === 0) return [];
+        const rows = matrix.length;
+        const cols = matrix[0].length;
+        const T = Array(cols).fill(0).map(() => Array(rows).fill(0));
+        for (let i = 0; i < rows; i++) {
+            for (let j = 0; j < cols; j++) {
+                T[j][i] = matrix[i][j];
+            }
+        }
+        return T;
+    }
+
+    // Multiply two matrices
+    function multiply(A, B) {
+        const rowsA = A.length;
+        const colsA = A[0].length;
+        const rowsB = B.length;
+        const colsB = B[0].length;
+        if (colsA !== rowsB) throw new Error("Matrix dimensions incompatible for multiplication");
+
+        const C = Array(rowsA).fill(0).map(() => Array(colsB).fill(0));
+        for (let i = 0; i < rowsA; i++) {
+            for (let j = 0; j < colsB; j++) {
+                for (let k = 0; k < colsA; k++) {
+                    C[i][j] += A[i][k] * B[k][j];
+                }
+            }
+        }
+        return C;
+    }
+
+    // Invert a 2x2 matrix: [[a, b], [c, d]]
+    function invert2x2(matrix) {
+        if (matrix.length !== 2 || matrix[0].length !== 2) throw new Error("Matrix must be 2x2 for this simple inversion");
+        const [[a, b], [c, d]] = matrix;
+        const det = a * d - b * c;
+        if (Math.abs(det) < 1e-10) throw new Error("Matrix is singular or near-singular");
+        const invDet = 1.0 / det;
+        return [
+            [d * invDet, -b * invDet],
+            [-c * invDet, a * invDet]
+        ];
+    }
+
+    // Add two matrices
+    function add(A, B) {
+        const rows = A.length;
+        const cols = A[0].length;
+        if (rows !== B.length || cols !== B[0].length) throw new Error("Matrix dimensions must match for addition");
+        const C = Array(rows).fill(0).map(() => Array(cols).fill(0));
+        for (let i = 0; i < rows; i++) {
+            for (let j = 0; j < cols; j++) {
+                C[i][j] = A[i][j] + B[i][j];
+            }
+        }
+        return C;
+    }
+
+    // Create identity matrix
+    function identity(n) {
+        const I = Array(n).fill(0).map(() => Array(n).fill(0));
+        for (let i = 0; i < n; i++) I[i][i] = 1;
+        return I;
+    }
+
+    // Scale a matrix
+    function scale(matrix, scalar) {
+        return matrix.map(row => row.map(val => val * scalar));
+    }
+
+</script>
+
+<script>
+// Ridge Demo specific script
+
+// UI Elements
+const plotDiv = document.getElementById('plot');
+const numPointsSlider = document.getElementById('numPointsSlider');
+const numPointsValue = document.getElementById('numPointsValue');
+const noiseSlider = document.getElementById('noiseSlider');
+const noiseValue = document.getElementById('noiseValue');
+const lambdaSlider = document.getElementById('lambdaSlider');
+const lambdaValue = document.getElementById('lambdaValue');
+const resetBtn = document.getElementById('resetBtn');
+
+let currentData = { X: [], y: [] }; // Store current data
+
+// Generate Data for y = w*x + b + noise
+function generate1DLinearData(numPoints, noiseStdDev) {
+    const trueW = Math.random() * 4 - 2; // True slope
+    const trueB = Math.random() * 2 - 1; // True intercept
+
+    const X = []; // Feature matrix (n x 1)
+    const y = []; // Target vector (n x 1)
+    const xVals = []; // Just the x values for plotting
+
+    for (let i = 0; i < numPoints; i++) {
+        const x_i = Math.random() * 10 - 5; // x range
+        const noise = (Math.random() - 0.5) * 2 * noiseStdDev;
+        const y_i = trueW * x_i + trueB + noise;
+
+        X.push([x_i]); // Store features as column(s)
+        y.push([y_i]); // Store y as a column vector
+        xVals.push(x_i);
+    }
+    return { X, y, xVals, trueW, trueB };
+}
+
+// Add bias column (column of 1s) to X
+function addBias(X) {
+    return X.map(row => [1, ...row]); // Bias term first: [1, x_i]
+}
+
+// Calculate OLS coefficients: w = (X^T X)^(-1) X^T y
+// Assumes X has bias column added
+function calculateOLSCoeffs(X_with_bias, y) {
+    const Xt = transpose(X_with_bias);
+    const XtX = multiply(Xt, X_with_bias);
+    let XtX_inv;
+    try {
+        XtX_inv = invert2x2(XtX); // Expecting 2x2 for 1 feature + bias
+    } catch (e) {
+        console.error("OLS Matrix inversion failed", e);
+        return null;
+    }
+    const XtY = multiply(Xt, y);
+    const w = multiply(XtX_inv, XtY);
+    // w[0][0] is bias, w[1][0] is slope for x
+    return { b: w[0][0], w: w[1][0] };
+}
+
+// Calculate Ridge coefficients: w = (X^T X + lambda * I_mod)^(-1) X^T y
+// Assumes X has bias column added. I_mod is identity with 0 for bias term.
+function calculateRidgeCoeffsWithBias(X_with_bias, y, lambda) {
+    const p = X_with_bias[0].length; // Number of columns (should be 2)
+    const I_mod = identity(p);
+    I_mod[0][0] = 0; // Don't penalize bias term
+
+    const Xt = transpose(X_with_bias);
+    const XtX = multiply(Xt, X_with_bias);
+    const lambdaI = scale(I_mod, lambda);
+    const term1 = add(XtX, lambdaI);
+    let term1_inv;
+    try {
+        term1_inv = invert2x2(term1); // Expecting 2x2
+    } catch (e) {
+        console.error("Ridge Matrix inversion failed for lambda=", lambda, e);
+        return null;
+    }
+    const XtY = multiply(Xt, y);
+    const w = multiply(term1_inv, XtY);
+    return { b: w[0][0], w: w[1][0] };
+}
+
+// Function to get points for plotting a line y = wx + b
+function getLinePlotPoints(w, b, xRange) {
+    const x = [xRange[0], xRange[1]];
+    const y = [w * x[0] + b, w * x[1] + b];
+    return { x, y };
+}
+
+// Main function to generate data and update plot
+function runRidgeDemo() {
+    const logLambda = parseFloat(lambdaSlider.value);
+    const lambda = Math.pow(10, logLambda);
+    lambdaValue.textContent = logLambda.toFixed(1);
+
+    // Use currently stored data
+    const { X, y, xVals } = currentData;
+    const X_with_bias = addBias(X);
+
+    // Calculate fits
+    const olsFit = calculateOLSCoeffs(X_with_bias, y);
+    const ridgeFit = calculateRidgeCoeffsWithBias(X_with_bias, y, lambda);
+
+    // Determine plot range dynamically or use fixed
+    const xPlotRange = [-6, 6]; // Extend slightly beyond typical data range
+    const yPlotRange = [-15, 15]; // Adjust as needed
+
+    // Create traces
+    const traceData = {
+        x: xVals,
+        y: y.map(v => v[0]), // Flatten y for plotting
+        mode: 'markers',
+        type: 'scatter',
+        name: 'Data Points',
+        marker: { color: 'grey', size: 8 }
+    };
+
+    const traces = [traceData];
+
+    if (olsFit) {
+        const olsLine = getLinePlotPoints(olsFit.w, olsFit.b, xPlotRange);
+        traces.push({
+            x: olsLine.x, y: olsLine.y, mode: 'lines',
+            name: 'OLS Fit (λ=0)',
+            line: { color: 'blue', width: 2 }
+        });
+    }
+
+    if (ridgeFit) {
+        const ridgeLine = getLinePlotPoints(ridgeFit.w, ridgeFit.b, xPlotRange);
+        traces.push({
+            x: ridgeLine.x, y: ridgeLine.y, mode: 'lines',
+            name: `Ridge Fit (λ=10^${logLambda.toFixed(1)})`,
+            line: { color: 'red', width: 2 }
+        });
+    }
+
+    const layout = {
+        title: 'OLS vs Ridge Regression',
+        xaxis: { title: 'x', range: xPlotRange },
+        yaxis: { title: 'y', range: yPlotRange, scaleanchor: "x", scaleratio: 1 }, // Keep aspect ratio somewhat reasonable
+        showlegend: true,
+        legend: {x: 0.05, y: 0.95}
+    };
+
+    Plotly.react(plotDiv, traces, layout); // Use react for updates without full redraw
+}
+
+// Generate new data and update plot
+function generateNewDataAndPlot() {
+    const numPoints = parseInt(numPointsSlider.value);
+    const noiseStdDev = parseFloat(noiseSlider.value);
+    currentData = generate1DLinearData(numPoints, noiseStdDev);
+    runRidgeDemo(); // Update plot with new data and current lambda
+}
+
+// Setup UI Controls
+setupSlider('numPointsSlider', 'numPointsValue', true, generateNewDataAndPlot); // Regenerate data on change
+setupSlider('noiseSlider', 'noiseValue', false, generateNewDataAndPlot); // Regenerate data on change
+lambdaSlider.addEventListener('input', runRidgeDemo); // Only update fit on lambda change
+resetBtn.addEventListener('click', generateNewDataAndPlot);
+
+// Initial Run
+generateNewDataAndPlot();
+
+</script>
+</body>
+</html> 

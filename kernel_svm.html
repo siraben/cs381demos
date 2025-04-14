@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <title>Kernel SVM Demo</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <!-- MathJax for equation rendering -->
+    <script>
+      window.MathJax = {
+        tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] }
+      };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+    <!-- Link shared CSS -->
+    <link rel="stylesheet" href="styles.css">
+    <!-- SVM Library -->
+    <script src="svm.js"></script> <!-- Assuming svm.js is downloaded and placed here -->
+    <style>
+      /* Specific styles if needed */
+       .plot-container {
+        position: relative; /* Needed for overlay */
+      }
+      /* Style for the decision boundary contour (will be applied by Plotly) */
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Kernel SVM Demo</h1>
+    <p>
+        This demo illustrates how a Support Vector Machine (SVM) with a non-linear kernel (like the RBF kernel)
+        can classify data that is not linearly separable in its original feature space.
+    </p>
+
+    <div class="controls">
+        <div class="control-box">
+            <label for="numPointsSlider">Points Per Class:</label><br/>
+            <input type="range" id="numPointsSlider" min="20" max="200" step="10" value="100" /><br/>
+            <span id="numPointsValue">100</span>
+        </div>
+        <div class="control-box">
+            <label for="datasetSelect">Dataset:</label><br/>
+            <select id="datasetSelect">
+                <option value="circles">Concentric Circles</option>
+                <option value="xor">XOR Pattern</option>
+                <option value="moons">Two Moons</option>
+            </select>
+        </div>
+        <div class="control-box">
+            <label for="cSlider">SVM C (Regularization):</label><br/>
+            <input type="range" id="cSlider" min="-2" max="3" step="0.1" value="1.0" /><br/>
+            <span>C = 10^</span><span id="cValue">1.0</span>
+        </div>
+        <div class="control-box">
+            <label for="gammaSlider">RBF Gamma:</label><br/>
+            <input type="range" id="gammaSlider" min="-2" max="2" step="0.1" value="0" /><br/>
+            <span>γ = 10^</span><span id="gammaValue">0.0</span>
+        </div>
+        <div class="control-box">
+          <button id="resetBtn">Generate New Data</button>
+        </div>
+    </div>
+
+    <div id="plot" class="plot-container" style="height: 600px;"></div>
+
+    <div id="explanation">
+        <h3>The Kernel Trick</h3>
+        <p>
+            When data isn't linearly separable, finding a linear hyperplane (like in the standard SVM demo) won't work well.
+            The <strong>kernel trick</strong> allows SVMs to find complex, non-linear decision boundaries.
+            Instead of explicitly mapping data points \(\mathbf{x}\) to a higher-dimensional space \(\phi(\mathbf{x})\) where they might become linearly separable, kernels compute the dot product in that high-dimensional space directly using only the original data points:
+            \[ K(\mathbf{x}_i, \mathbf{x}_j) = \phi(\mathbf{x}_i) \cdot \phi(\mathbf{x}_j) \]
+            Common kernels include:
+            <ul>
+                <li><strong>Linear:</strong> \( K(\mathbf{x}_i, \mathbf{x}_j) = \mathbf{x}_i \cdot \mathbf{x}_j \) (equivalent to standard linear SVM)</li>
+                <li><strong>Polynomial:</strong> \( K(\mathbf{x}_i, \mathbf{x}_j) = (\gamma \mathbf{x}_i \cdot \mathbf{x}_j + r)^d \)</li>
+                <li><strong>Radial Basis Function (RBF) / Gaussian:</strong> \( K(\mathbf{x}_i, \mathbf{x}_j) = \exp(-\gamma \|\mathbf{x}_i - \mathbf{x}_j\|^2) \)</li>
+            </ul>
+        </p>
+        <p>
+            The SVM optimization then depends on these kernel computations rather than the original features. The resulting decision boundary, when mapped back to the original feature space, becomes non-linear.
+        </p>
+        <p>
+            This demo trains a Kernel SVM using the RBF kernel directly in your browser (using the svm.js library).
+            It generates non-linearly separable datasets (Circles, XOR, Moons) and then calculates and displays the non-linear decision boundary learned by the SVM based on the chosen hyperparameters (C and γ).
+            The shaded background indicates the predicted class region based on the trained SVM's decision function.
+        </p>
+    </div>
+
+    <div class="footer">
+        <em>Visualizing non-linear classification using the concept of Kernel SVM.</em>
+    </div>
+</div>
+
+<!-- Include shared utils -->
+<script src="plotUtils.js"></script>
+
+<script>
+// Kernel SVM Demo specific script
+
+// UI Elements
+const plotDiv = document.getElementById('plot');
+const numPointsSlider = document.getElementById('numPointsSlider');
+const numPointsValue = document.getElementById('numPointsValue');
+const datasetSelect = document.getElementById('datasetSelect');
+const cSlider = document.getElementById('cSlider');
+const cValue = document.getElementById('cValue');
+const gammaSlider = document.getElementById('gammaSlider');
+const gammaValue = document.getElementById('gammaValue');
+const resetBtn = document.getElementById('resetBtn');
+
+const PLOT_RANGE = [-6, 6];
+let currentDataset = { data: [], labels: [] }; // Store data for SVM training
+let currentRawData = { class1: {x:[],y:[]}, class2:{x:[],y:[]}}; // Store raw points for plotting
+
+// --- Data Generation Functions (Modified to produce svm.js format) ---
+
+function formatData(class1, class2) {
+    const data = [];
+    const labels = [];
+    class1.x.forEach((x, i) => {
+        data.push([x, class1.y[i]]);
+        labels.push(1);
+    });
+    class2.x.forEach((x, i) => {
+        data.push([x, class2.y[i]]);
+        labels.push(-1);
+    });
+    return { data, labels };
+}
+
+function generateCircles(numPointsPerClass) {
+    const class1_raw = { x: [], y: [] };
+    const class2_raw = { x: [], y: [] };
+    const r1_inner = 1.5, r1_outer = 2.5;
+    const r2_inner = 4.0, r2_outer = 5.0;
+
+    for (let i = 0; i < numPointsPerClass; i++) {
+        const r1 = r1_inner + Math.random() * (r1_outer - r1_inner);
+        const angle1 = Math.random() * 2 * Math.PI;
+        class1_raw.x.push(r1 * Math.cos(angle1));
+        class1_raw.y.push(r1 * Math.sin(angle1));
+
+        const r2 = r2_inner + Math.random() * (r2_outer - r2_inner);
+        const angle2 = Math.random() * 2 * Math.PI;
+        class2_raw.x.push(r2 * Math.cos(angle2));
+        class2_raw.y.push(r2 * Math.sin(angle2));
+    }
+    currentRawData = { class1: class1_raw, class2: class2_raw };
+    return formatData(class1_raw, class2_raw);
+}
+
+function generateXOR(numPointsPerClass) {
+    const class1_raw = { x: [], y: [] }; // Top-left, Bottom-right
+    const class2_raw = { x: [], y: [] }; // Top-right, Bottom-left
+    const center1 = [-3, 3], center2 = [3, -3];
+    const center3 = [3, 3], center4 = [-3, -3];
+    const stdDev = 1.0;
+
+    function gaussianRandom() { // Box-Muller transform approximation
+        let u = 0, v = 0;
+        while(u === 0) u = Math.random(); //Converting [0,1) to (0,1)
+        while(v === 0) v = Math.random();
+        return Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
+    }
+
+    for (let i = 0; i < numPointsPerClass; i++) {
+        if (i % 2 === 0) {
+            const center = (Math.random() < 0.5) ? center1 : center2;
+            class1_raw.x.push(center[0] + gaussianRandom() * stdDev);
+            class1_raw.y.push(center[1] + gaussianRandom() * stdDev);
+        } else {
+            const center = (Math.random() < 0.5) ? center3 : center4;
+             class2_raw.x.push(center[0] + gaussianRandom() * stdDev);
+             class2_raw.y.push(center[1] + gaussianRandom() * stdDev);
+        }
+    }
+    currentRawData = { class1: class1_raw, class2: class2_raw };
+    return formatData(class1_raw, class2_raw);
+}
+
+function generateMoons(numPointsPerClass) {
+    const class1_raw = { x: [], y: [] };
+    const class2_raw = { x: [], y: [] };
+    const n = numPointsPerClass;
+    const noise = 0.15; // Slightly increased noise for more challenge
+
+    for(let i = 0; i < n; i++) {
+        const angle1 = Math.PI * i / n;
+        const x1 = 1.5 * Math.cos(angle1);
+        const y1 = 3.0 * Math.sin(angle1);
+        class1_raw.x.push(x1 + (Math.random() - 0.5) * noise * 5);
+        class1_raw.y.push(y1 + (Math.random() - 0.5) * noise * 5);
+
+        const angle2 = Math.PI * (1 + i / n);
+        const x2 = 1.5 * Math.cos(angle2) + 1.0; // Shift second moon
+        const y2 = 3.0 * Math.sin(angle2) + 0.5;
+        class2_raw.x.push(x2 + (Math.random() - 0.5) * noise * 5);
+        class2_raw.y.push(y2 + (Math.random() - 0.5) * noise * 5);
+    }
+    currentRawData = { class1: class1_raw, class2: class2_raw };
+    return formatData(class1_raw, class2_raw);
+}
+
+// --- SVM Training and Prediction --- 
+
+function trainAndPlotSVM() {
+    const C = Math.pow(10, parseFloat(cSlider.value));
+    const gamma = Math.pow(10, parseFloat(gammaSlider.value));
+    cValue.textContent = parseFloat(cSlider.value).toFixed(1);
+    gammaValue.textContent = parseFloat(gammaSlider.value).toFixed(1);
+
+    const { data, labels } = currentDataset;
+    if (!data || data.length === 0) {
+        console.error("No data available to train SVM.");
+        return;
+    }
+
+    // Initialize SVM
+    const svm = new svmjs.SVM();
+    const options = { kernel: 'rbf', rbfsigma: 1.0 / Math.sqrt(gamma), C: C }; // Note: svm.js uses sigma = 1/sqrt(gamma) for rbf
+
+    console.log(`Training SVM with C=${C.toExponential(2)}, gamma=${gamma.toExponential(2)} (sigma=${options.rbfsigma.toExponential(2)})`);
+
+    try {
+        svm.train(data, labels, options);
+        console.log("SVM Training complete.");
+    } catch (e) {
+        console.error("SVM Training failed:", e);
+        // Optionally display an error message on the plot
+        Plotly.purge(plotDiv); // Clear plot on failure
+         Plotly.newPlot(plotDiv, [], {title: 'SVM Training Failed'});
+        return;
+    }
+
+
+    // Generate grid for decision boundary prediction
+    const boundaryTraces = plotDecisionBoundarySVM(svm);
+
+    // Create Plotly traces for original data points
+    const traceClass1 = {
+        x: currentRawData.class1.x, y: currentRawData.class1.y, mode: 'markers',
+        marker: { color: 'blue', size: 8, symbol: 'circle' },
+        name: 'Class 1'
+    };
+    const traceClass2 = {
+        x: currentRawData.class2.x, y: currentRawData.class2.y, mode: 'markers',
+        marker: { color: 'red', size: 8, symbol: 'square' },
+        name: 'Class -1'
+    };
+
+    // Plot support vectors (optional, requires accessing svm internals)
+    const svTrace = createSVTrace(svm);
+
+    const layout = {
+        title: `Kernel SVM (RBF: C=${C.toExponential(1)}, γ=${gamma.toExponential(1)}) - ${datasetSelect.value}`,
+        xaxis: { title: 'Feature 1', range: PLOT_RANGE, zeroline: false },
+        yaxis: { title: 'Feature 2', range: PLOT_RANGE, zeroline: false, scaleanchor: "x", scaleratio: 1 },
+        showlegend: true,
+        legend: { x: 1.05, y: 0.5 } // Adjust legend position
+    };
+
+    Plotly.react(plotDiv, [
+        ...boundaryTraces,
+        traceClass1, traceClass2, svTrace
+    ], layout);
+     console.log("Plot updated.");
+}
+
+function createSVTrace(svm) {
+    // Extract support vectors (indices and points) if possible from svm.js structure
+    // svm.js stores SVs internally (this might change based on library version)
+    const sv_indices = svm.sv_indices || [];
+    const sv_x = sv_indices.map(i => svm.data[i][0]);
+    const sv_y = sv_indices.map(i => svm.data[i][1]);
+
+    return {
+        x: sv_x,
+        y: sv_y,
+        mode: 'markers',
+        marker: {
+            color: 'rgba(0,0,0,0)', // Transparent fill
+            size: 12,
+            line: { color: 'black', width: 2 } // Black outline
+        },
+        name: 'Support Vectors'
+    };
+}
+
+function plotDecisionBoundarySVM(svm) {
+    const N = 60; // Reduced resolution slightly for performance
+    const xGrid = [], yGrid = [];
+    const zGrid = [];
+    const xMin = PLOT_RANGE[0], xMax = PLOT_RANGE[1];
+    const yMin = PLOT_RANGE[0], yMax = PLOT_RANGE[1];
+
+    for(let i = 0; i < N; i++) {
+        xGrid.push(xMin + i * (xMax - xMin) / (N - 1));
+        yGrid.push(yMin + i * (yMax - yMin) / (N - 1));
+    }
+
+    for(let j = 0; j < N; j++) {
+        const row = [];
+        for(let i = 0; i < N; i++) {
+            const gridPoint = [xGrid[i], yGrid[j]];
+            // Use SVM margin score for boundary plotting
+            const margin = svm.marginOne(gridPoint);
+            row.push(margin);
+        }
+        zGrid.push(row);
+    }
+
+     const heatmapTrace = {
+         x: xGrid,
+         y: yGrid,
+         z: zGrid,
+         type: 'heatmap',
+         colorscale: [[0, 'rgba(255, 200, 200, 0.4)'], [1, 'rgba(200, 200, 255, 0.4)']], // Class -1 Red, Class 1 Blue
+         showscale: false,
+         zsmooth: 'best',
+         name: 'Prediction Regions'
+     };
+     const contourTrace = {
+        x: xGrid,
+        y: yGrid,
+        z: zGrid,
+        type: 'contour',
+        // colorscale isn't used when coloring: 'lines' and only one level is shown
+        contours: {
+            start: 0, end: 0, size: 0, // Show boundary at z=0
+            coloring: 'lines',
+            showlines: true
+        },
+        line: {width: 2, color: 'black'},
+        showscale: false,
+        name: 'Decision Boundary (z=0)'
+    };
+
+    return [heatmapTrace, contourTrace];
+}
+
+
+// Function to generate new data based on selection
+function generateNewData() {
+    const numPoints = parseInt(numPointsSlider.value);
+    const datasetType = datasetSelect.value;
+
+    if (datasetType === 'circles') {
+        currentDataset = generateCircles(numPoints);
+    } else if (datasetType === 'xor') {
+        currentDataset = generateXOR(numPoints);
+    } else if (datasetType === 'moons') {
+        currentDataset = generateMoons(numPoints);
+    } else {
+        currentDataset = { data: [], labels: [] };
+        currentRawData = { class1: {x:[],y:[]}, class2:{x:[],y:[]}};
+    }
+    console.log(`Generated ${datasetType} data.`);
+    trainAndPlotSVM(); // Train and plot with new data
+}
+
+// Setup UI Controls
+setupSlider('numPointsSlider', 'numPointsValue', true, generateNewData);
+cSlider.addEventListener('input', trainAndPlotSVM); // Retrain on C change
+gammaSlider.addEventListener('input', trainAndPlotSVM); // Retrain on gamma change
+datasetSelect.addEventListener('change', generateNewData);
+resetBtn.addEventListener('click', generateNewData);
+
+// Initial Run
+generateNewData();
+
+</script>
+</body>
+</html> 

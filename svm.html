@@ -11,6 +11,8 @@
     };
   </script>
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+  <!-- SVM Library -->
+  <script src="svm.js"></script> <!-- Assuming svm.js is in the same directory -->
   <!-- Link shared CSS -->
   <link rel="stylesheet" href="styles.css">
   <style>
@@ -42,6 +44,11 @@
       <span id="marginValue">1.0</span>
     </div>
     <div class="control-box">
+      <label for="cSlider">SVM C (Regularization):</label><br/>
+      <input type="range" id="cSlider" min="-2" max="3" step="0.1" value="1.0" /><br/>
+      <span>C = 10^</span><span id="cValueDisplay">1.0</span>
+    </div>
+    <div class="control-box">
       <button id="resetBtn">Generate New Data</button>
     </div>
   </div>
@@ -61,13 +68,13 @@
     <h3>Visualization Details</h3>
     <ul>
       <li>Blue circles (\(y_i = +1\)) and Red squares (\(y_i = -1\)) represent the two classes of data points \(\mathbf{x}_i\).</li>
-      <li>The solid black line is the <strong>optimal separating hyperplane</strong> found by the SVM.</li>
-      <li>The dashed black lines represent the <strong>margins</strong>. The distance between these lines is maximized.</li>
-      <li>Data points lying exactly on the margin lines are the <strong>support vectors</strong>. They are shown with a black outline. These are the critical points that define the hyperplane and margins.</li>
+      <li>The solid black line is the <strong>optimal separating hyperplane</strong> (\(\mathbf{w} \cdot \mathbf{x} + b = 0\)) found by the SVM.</li>
+      <li>The dashed black lines represent the <strong>margins</strong> (\(\mathbf{w} \cdot \mathbf{x} + b = \pm 1\)). The distance between these lines is maximized.</li>
+      <li>Data points lying exactly on the margin lines are the <strong>support vectors</strong>. They are shown with a black outline. These are the critical points identified by the SVM solver that define the hyperplane and margins.</li>
     </ul>
     <p>
-        Adjust the sliders and regenerate data to see how the number of points and the inherent separation affect the result.
-        This demo simulates the result of a linear SVM; it doesn't perform the actual optimization calculation in the browser.
+        Adjust the sliders and regenerate data to see how the number of points, the inherent separation, and the regularization parameter C affect the result.
+        This demo trains a linear SVM directly in your browser (using the svm.js library) and displays the calculated hyperplane, margins, and support vectors.
     </p>
   </div>
 
@@ -88,177 +95,90 @@ const numPointsSlider = document.getElementById('numPointsSlider');
 const numPointsValue = document.getElementById('numPointsValue');
 const marginSlider = document.getElementById('marginSlider');
 const marginValue = document.getElementById('marginValue');
+const cSlider = document.getElementById('cSlider');
+const cValueDisplay = document.getElementById('cValueDisplay');
 const resetBtn = document.getElementById('resetBtn');
 
 const PLOT_X_RANGE = [-6, 6];
 const PLOT_Y_RANGE = [-6, 6];
+let currentDataset = { data: [], labels: [] }; // Store data for SVM training
+let currentRawData = { class1: {x:[],y:[]}, class2:{x:[],y:[]}}; // Store raw points for plotting
 
-// Function to generate random data for two classes
-function generateData(numPointsPerClass, margin) {
-    const data = { class1: { x: [], y: [] }, class2: { x: [], y: [] } };
+// Function to format data for svm.js
+function formatData(class1, class2) {
+    const data = [];
+    const labels = [];
+    class1.x.forEach((x, i) => {
+        data.push([x, class1.y[i]]);
+        labels.push(1);
+    });
+    class2.x.forEach((x, i) => {
+        data.push([x, class2.y[i]]);
+        labels.push(-1);
+    });
+    return { data, labels };
+}
 
-    // Generate a random line ax + by + c = 0
-    // We normalize a and b such that a^2 + b^2 = 1
-    let a = Math.random() * 2 - 1; // between -1 and 1
+
+// Generate linearly separable data
+// Slightly modified to be less rigid, ensuring separability but not forcing points exactly outside a predefined margin
+function generateLinearData(numPointsPerClass, separation) {
+    const class1_raw = { x: [], y: [] };
+    const class2_raw = { x: [], y: [] };
+
+    // Generate a random separating line ax + by + c = 0
+    let a = Math.random() * 2 - 1;
     let b = Math.random() * 2 - 1;
-    const norm = Math.sqrt(a*a + b*b);
+    const norm = Math.sqrt(a*a + b*b) || 1;
     a /= norm;
     b /= norm;
-    // Ensure line passes somewhat centrally, adjust c based on range midpoint (0,0)
-    let c = -(a * (Math.random()-0.5)*2 + b * (Math.random()-0.5)*2); // Small random offset from origin
+    let c = -(a * (Math.random()-0.5)*1 + b * (Math.random()-0.5)*1); // Offset slightly
 
-    const points = [];
+    const pointsAdded = { class1: 0, class2: 0 };
+    const maxAttempts = numPointsPerClass * 10; // Prevent infinite loop
+    let attempts = 0;
 
-    // Generate points
-    while(points.length < numPointsPerClass * 2) {
+    while((pointsAdded.class1 < numPointsPerClass || pointsAdded.class2 < numPointsPerClass) && attempts < maxAttempts) {
+        attempts++;
         let x = PLOT_X_RANGE[0] + Math.random() * (PLOT_X_RANGE[1] - PLOT_X_RANGE[0]);
         let y = PLOT_Y_RANGE[0] + Math.random() * (PLOT_Y_RANGE[1] - PLOT_Y_RANGE[0]);
-        const distance = a * x + b * y + c;
+        const score = a * x + b * y + c;
+        const requiredDist = separation / 2.0; // Minimum distance from the ideal line
 
-        // Ensure points are clearly outside the margin for generation
-        const targetMargin = margin / 2.0;
-        const scatter = 0.2 + Math.random() * 1.5; // Add some random distance beyond margin
-
-        if (Math.abs(distance) < targetMargin) { // Point is inside margin, push it out
-            const shift = targetMargin - Math.abs(distance) + scatter;
-            if (distance >= 0) {
-                x += a * shift;
-                y += b * shift;
-            } else {
-                x -= a * shift;
-                y -= b * shift;
-            }
-        } else { // Point outside margin, add scatter
-             if (distance >= 0) {
-                x += a * scatter;
-                y += b * scatter;
-            } else {
-                x -= a * scatter;
-                y -= b * scatter;
-            }
-        }
-
-        // Recalculate distance after potential shift
-        const finalDistance = a * x + b * y + c;
-
-        // Assign class based on side of the line
-        if (finalDistance >= targetMargin) {
-             if (data.class1.x.length < numPointsPerClass) {
-                data.class1.x.push(x);
-                data.class1.y.push(y);
-                points.push({x: x, y: y, class: 1, distance: finalDistance});
-            }
-        } else if (finalDistance <= -targetMargin) {
-            if (data.class2.x.length < numPointsPerClass) {
-                data.class2.x.push(x);
-                data.class2.y.push(y);
-                points.push({x: x, y: y, class: -1, distance: finalDistance});
-            }
+        if (score >= requiredDist && pointsAdded.class1 < numPointsPerClass) {
+             // Add some scatter away from the line
+             const scatter = 0.1 + Math.random() * 1.5;
+             x += a * scatter;
+             y += b * scatter;
+             class1_raw.x.push(x);
+             class1_raw.y.push(y);
+             pointsAdded.class1++;
+        } else if (score <= -requiredDist && pointsAdded.class2 < numPointsPerClass) {
+             const scatter = 0.1 + Math.random() * 1.5;
+             x -= a * scatter;
+             y -= b * scatter;
+             class2_raw.x.push(x);
+             class2_raw.y.push(y);
+             pointsAdded.class2++;
         }
     }
+     if (attempts >= maxAttempts) {
+         console.warn("Max attempts reached generating data. Dataset might be smaller than requested.")
+     }
 
-    return { data, points, lineParams: { a, b, c } };
+    currentRawData = { class1: class1_raw, class2: class2_raw };
+    return formatData(class1_raw, class2_raw);
 }
 
-// Function to find simulated support vectors
-function findSupportVectors(points, a, b, c, margin) {
-    const sv = { class1: { x: [], y: [] }, class2: { x: [], y: [] } };
-    let minDist1 = Infinity;
-    let minDistNeg1 = Infinity;
+// Function to find support vectors (used by svm.js internally, we extract)
+function createSVTrace(svm) {
+    const sv_indices = svm.sv_indices || [];
+    const sv_x = sv_indices.map(i => svm.data[i][0]);
+    const sv_y = sv_indices.map(i => svm.data[i][1]);
 
-    points.forEach(p => {
-        const dist = a * p.x + b * p.y + c;
-        if (p.class === 1) {
-            minDist1 = Math.min(minDist1, dist);
-        } else { // class === -1
-            minDistNeg1 = Math.min(minDistNeg1, Math.abs(dist));
-        }
-    });
-
-    // In simulation, we know the intended margin. Let's highlight points *near* that margin.
-    // A real SVM finds points exactly on margin d= +/- 1 (after scaling).
-    // Here, use the *actual* minimum distances found, which define the practical margin.
-    const effectiveMargin1 = minDist1;
-    const effectiveMarginNeg1 = -minDistNeg1;
-    const tolerance = 0.05 * Math.max(effectiveMargin1, Math.abs(effectiveMarginNeg1), 0.1); // Small tolerance
-
-    points.forEach(p => {
-        const dist = a * p.x + b * p.y + c;
-        if (p.class === 1 && Math.abs(dist - effectiveMargin1) < tolerance) {
-            sv.class1.x.push(p.x);
-            sv.class1.y.push(p.y);
-        }
-        if (p.class === -1 && Math.abs(dist - effectiveMarginNeg1) < tolerance) {
-            sv.class2.x.push(p.x);
-            sv.class2.y.push(p.y);
-        }
-    });
-
-    // Return the effective margins found
-    return { sv, marginPos: effectiveMargin1, marginNeg: effectiveMarginNeg1 };
-}
-
-
-// Function to get line points for plotting
-function getLinePoints(a, b, c, xRange) {
-    const x = [];
-    const y = [];
-    const [xMin, xMax] = xRange;
-
-    if (Math.abs(b) > 1e-6) { // Line is not vertical
-        x.push(xMin);
-        y.push((-c - a * xMin) / b);
-        x.push(xMax);
-        y.push((-c - a * xMax) / b);
-    } else { // Line is vertical or near-vertical (x = -c/a)
-        const xVal = -c / a;
-        // Check if vertical line is within plot range (maybe unnecessary)
-        if (xVal >= xMin && xVal <= xMax) {
-             x.push(xVal);
-             y.push(PLOT_Y_RANGE[0]);
-             x.push(xVal);
-             y.push(PLOT_Y_RANGE[1]);
-        } else {
-             // Line outside range, return empty or handle differently
-             // For simplicity, let's skip plotting if vertical line is way out
-             console.warn("Vertical line outside plot range.");
-             return {x: [], y: []};
-        }
-    }
-    return { x, y };
-}
-
-// Main function to generate data and update plot
-function runSVMDemo() {
-    const numPoints = parseInt(numPointsSlider.value);
-    const margin = parseFloat(marginSlider.value);
-
-    const { data, points, lineParams } = generateData(numPoints, margin);
-    const { a, b, c } = lineParams;
-
-    // Find simulated support vectors and effective margins
-    const { sv, marginPos, marginNeg } = findSupportVectors(points, a, b, c, margin);
-
-    // Get points for plotting the separating line and margins
-    const sepLine = getLinePoints(a, b, c, PLOT_X_RANGE);
-    // Margin lines are ax + by + c = +/- actual_margin
-    const marginLinePos = getLinePoints(a, b, c - marginPos, PLOT_X_RANGE);
-    const marginLineNeg = getLinePoints(a, b, c - marginNeg, PLOT_X_RANGE);
-
-    // Create Plotly traces
-    const traceClass1 = {
-        x: data.class1.x, y: data.class1.y, mode: 'markers',
-        marker: { color: 'blue', size: 8, symbol: 'circle' },
-        name: 'Class 1'
-    };
-    const traceClass2 = {
-        x: data.class2.x, y: data.class2.y, mode: 'markers',
-        marker: { color: 'red', size: 8, symbol: 'square' },
-        name: 'Class -1'
-    };
-    const traceSV = {
-        x: sv.class1.x.concat(sv.class2.x),
-        y: sv.class1.y.concat(sv.class2.y),
+    return {
+        x: sv_x,
+        y: sv_y,
         mode: 'markers',
         marker: {
             color: 'rgba(0,0,0,0)', // Transparent fill
@@ -267,43 +187,201 @@ function runSVMDemo() {
         },
         name: 'Support Vectors'
     };
-    const traceSepLine = {
-        x: sepLine.x, y: sepLine.y, mode: 'lines',
-        line: { color: 'black', width: 2 },
-        name: 'Hyperplane'
+}
+
+
+// Function to get line points for plotting ax + by + c = 0
+function getLinePoints(a, b, c, xRange, yRange) {
+    const x = [];
+    const y = [];
+    const [xMin, xMax] = xRange;
+    const [yMin, yMax] = yRange; // Use yRange for better clipping
+
+    // Find intersections with plot boundaries
+    // y = (-a*x - c) / b
+    // x = (-b*y - c) / a
+
+    const points = [];
+
+    if (Math.abs(b) > 1e-6) { // If not vertical
+        let yAtXMin = (-a * xMin - c) / b;
+        if (yAtXMin >= yMin && yAtXMin <= yMax) points.push([xMin, yAtXMin]);
+        let yAtXMax = (-a * xMax - c) / b;
+        if (yAtXMax >= yMin && yAtXMax <= yMax) points.push([xMax, yAtXMax]);
+    }
+
+    if (Math.abs(a) > 1e-6) { // If not horizontal
+        let xAtYMin = (-b * yMin - c) / a;
+        if (xAtYMin >= xMin && xAtYMin <= xMax) points.push([xAtYMin, yMin]);
+        let xAtYMax = (-b * yMax - c) / a;
+        if (xAtYMax >= xMin && xAtYMax <= xMax) points.push([xAtYMax, yMax]);
+    }
+
+    // Sort points by x to draw line correctly (simple sort)
+    points.sort((p1, p2) => p1[0] - p2[0]);
+
+    // Remove duplicate points (can happen at corners)
+    const uniquePoints = [];
+    if (points.length > 0) {
+        uniquePoints.push(points[0]);
+        for(let i = 1; i < points.length; i++) {
+            if (Math.abs(points[i][0] - points[i-1][0]) > 1e-6 || Math.abs(points[i][1] - points[i-1][1]) > 1e-6) {
+                uniquePoints.push(points[i]);
+            }
+        }
+    }
+
+    // Need at least two points to draw a line segment
+    if (uniquePoints.length >= 2) {
+        // Use the first and last unique point after sorting by x
+        // (or more robustly, the two points defining the longest segment within bounds)
+        // For simplicity, just take the first two unique points found.
+        x.push(uniquePoints[0][0]);
+        y.push(uniquePoints[0][1]);
+        x.push(uniquePoints[1][0]);
+        y.push(uniquePoints[1][1]);
+    }
+
+    return { x, y };
+}
+
+// Main function to generate data, train SVM, and update plot
+function runSVMDemo() {
+    // Get parameters
+    const numPoints = parseInt(numPointsSlider.value);
+    const separation = parseFloat(marginSlider.value); // Use this to control initial data separation
+    const svmC_log = parseFloat(cSlider.value);
+    const svmC = Math.pow(10, svmC_log);
+    cValueDisplay.textContent = svmC_log.toFixed(1);
+
+    // Generate data
+    currentDataset = generateLinearData(numPoints, separation);
+    const { data, labels } = currentDataset;
+
+    if (!data || data.length === 0) {
+        Plotly.react(plotDiv, [], {title: 'Failed to generate data'});
+        return;
+    }
+
+    // Train Linear SVM
+    const svm = new svmjs.SVM();
+    const options = { kernel: 'linear', C: svmC };
+    console.log(`Training Linear SVM with C=${svmC.toExponential(2)}`);
+
+    try {
+        svm.train(data, labels, options);
+        console.log("SVM Training complete.");
+    } catch (e) {
+        console.error("SVM Training failed:", e);
+        Plotly.react(plotDiv, [], {title: 'SVM Training Failed'});
+        return;
+    }
+
+    // Extract learned parameters w1*x1 + w2*x2 + b = 0
+    // Let's try to determine the structure svm.js uses for linear kernels
+    let w1, w2, b;
+
+    // Revised Assumption: For linear kernel, svm.w = [w1, w2] and svm.b = bias
+    if (svm.w && svm.w.length === 2 && svm.b !== undefined) {
+        w1 = svm.w[0];
+        w2 = svm.w[1];
+        b = svm.b;
+        console.log("Extracted params: w from svm.w, b from svm.b");
+    } else {
+        console.error(`Could not extract linear SVM parameters. svm.w: ${svm.w}, svm.b: ${svm.b}`);
+        Plotly.react(plotDiv, [], {title: 'SVM Parameter Extraction Failed'});
+        return; // Stop further processing
+    }
+
+    // Ensure parameters are numbers
+    if (isNaN(w1) || isNaN(w2) || isNaN(b)) {
+         console.error("Extracted SVM parameters are NaN.", {w1, w2, b});
+         Plotly.react(plotDiv, [], {title: 'SVM Parameter Error (NaN)'});
+         return;
+    }
+
+    console.log(`Using params: w1=${w1.toFixed(3)}, w2=${w2.toFixed(3)}, b=${b.toFixed(3)}`);
+
+    // Create Plotly traces for data points
+    const traceClass1 = {
+        x: currentRawData.class1.x, y: currentRawData.class1.y, mode: 'markers',
+        marker: { color: 'blue', size: 8, symbol: 'circle' },
+        name: 'Class 1'
     };
-    const traceMarginPos = {
-        x: marginLinePos.x, y: marginLinePos.y, mode: 'lines',
-        line: { color: 'black', width: 1, dash: 'dash' },
-        name: 'Margin'
-    };
-    const traceMarginNeg = {
-        x: marginLineNeg.x, y: marginLineNeg.y, mode: 'lines',
-        line: { color: 'black', width: 1, dash: 'dash' },
-        showlegend: false // Show margin legend only once
+    const traceClass2 = {
+        x: currentRawData.class2.x, y: currentRawData.class2.y, mode: 'markers',
+        marker: { color: 'red', size: 8, symbol: 'square' },
+        name: 'Class -1'
     };
 
+    // Get Support Vectors
+    const svTrace = createSVTrace(svm);
+
+    // Get points for plotting the separating line and margins
+    // Line: w1*x + w2*y + b = 0 (note the sign change for b vs formula)
+    const sepLine = getLinePoints(w1, w2, b, PLOT_X_RANGE, PLOT_Y_RANGE);
+    // Margins: w1*x + w2*y + b = +/- 1
+    const marginLinePos = getLinePoints(w1, w2, b - 1, PLOT_X_RANGE, PLOT_Y_RANGE);
+    const marginLineNeg = getLinePoints(w1, w2, b + 1, PLOT_X_RANGE, PLOT_Y_RANGE);
+
+    const traces = [traceClass1, traceClass2, svTrace];
+
+    if (sepLine.x.length > 0) {
+        traces.push({
+            x: sepLine.x, y: sepLine.y, mode: 'lines',
+            line: { color: 'black', width: 2 },
+            name: 'Hyperplane (w⋅x+b=0)'
+        });
+    }
+     if (marginLinePos.x.length > 0) {
+        traces.push({
+            x: marginLinePos.x, y: marginLinePos.y, mode: 'lines',
+            line: { color: 'black', width: 1, dash: 'dash' },
+            name: 'Margin (w⋅x+b=±1)'
+        });
+    }
+      if (marginLineNeg.x.length > 0) {
+        traces.push({
+            x: marginLineNeg.x, y: marginLineNeg.y, mode: 'lines',
+            line: { color: 'black', width: 1, dash: 'dash' },
+            showlegend: false
+        });
+    }
+
     const layout = {
-        title: 'Linear SVM Visualization',
+        title: `Linear SVM (C=${svmC.toExponential(1)})`,
         xaxis: { title: 'Feature 1', range: PLOT_X_RANGE, zeroline: false },
         yaxis: { title: 'Feature 2', range: PLOT_Y_RANGE, zeroline: false, scaleanchor: "x", scaleratio: 1 },
         showlegend: true,
-        legend: { x: 1, y: 0.5 }
+        legend: { x: 1.05, y: 0.5 }
     };
 
-    Plotly.newPlot(plotDiv, [
-        traceClass1, traceClass2, traceSV,
-        traceSepLine, traceMarginPos, traceMarginNeg
-    ], layout);
+    Plotly.react(plotDiv, traces, layout);
+    console.log("Plot updated.");
+}
+
+// Generate new data and run
+function generateNewDataAndRun(){
+    const numPoints = parseInt(numPointsSlider.value);
+    const separation = parseFloat(marginSlider.value);
+    currentDataset = generateLinearData(numPoints, separation);
+    runSVMDemo();
 }
 
 // Setup UI Controls
-setupSlider('numPointsSlider', 'numPointsValue', true, runSVMDemo);
-setupSlider('marginSlider', 'marginValue', false, runSVMDemo);
-resetBtn.addEventListener('click', runSVMDemo);
+setupSlider('numPointsSlider', 'numPointsValue', true, generateNewDataAndRun);
+setupSlider('marginSlider', 'marginValue', false, generateNewDataAndRun); // Affects data generation
+cSlider.addEventListener('input', () => {
+    const logC = parseFloat(cSlider.value);
+    cValueDisplay.textContent = logC.toFixed(1);
+    runSVMDemo(); // Retrain SVM when C changes
+});
+cValueDisplay.textContent = parseFloat(cSlider.value).toFixed(1);
+
+resetBtn.addEventListener('click', generateNewDataAndRun);
 
 // Initial Run
-runSVMDemo();
+generateNewDataAndRun();
 
 </script>
 </body>
