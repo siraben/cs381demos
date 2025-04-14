@@ -15,79 +15,20 @@
   </script>
   <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
 
+  <!-- Link shared CSS -->
+  <link rel="stylesheet" href="styles.css">
   <style>
-    body {
-      margin: 0;
-      background: #fafafa;
-      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-      color: #333;
-    }
+    /* Override container centering for this layout if needed */
     .container {
-      max-width: 1000px;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      padding: 1rem;
+        /* align-items: initial; */ /* Keep centered for consistency */
     }
-    h1 {
-      margin: 0.5rem;
-    }
-    .controls {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 1rem;
-      margin: 1rem 0;
-    }
-    .control-box {
-      background: #fff;
-      padding: 0.75rem 1rem;
-      border-radius: 0.5rem;
-      box-shadow: 0 0 6px rgba(0,0,0,0.1);
-      min-width: 180px;
-    }
-    label {
-      font-weight: 600;
-      margin-right: 0.5rem;
-    }
-    button, input[type=range] {
-      cursor: pointer;
-      margin: 0.25rem 0;
-    }
-    input[type=range] {
-      width: 100%;
-    }
+    /* Use specific plot container class */
     .plot-container {
-      width: 800px;
-      max-width: 90vw;
-      height: 500px;
-      background: #fff;
-      box-shadow: 0 0 8px rgba(0,0,0,0.1);
-      border-radius: 0.5rem;
-      overflow: hidden;
+        /* Defined in styles.css, but maybe override size? */
+        width: 800px; /* Keep larger width */
+        height: 500px; /* Keep specific height */
     }
-    #explanation {
-      background: #fff;
-      padding: 1rem;
-      margin-top: 1rem;
-      border-radius: 0.5rem;
-      box-shadow: 0 0 6px rgba(0,0,0,0.1);
-      max-width: 800px;
-      line-height: 1.4;
-    }
-    #explanation h3 {
-      margin-top: 0;
-    }
-    #explanation p, #explanation li {
-      margin: 0.5rem 0;
-    }
-    .footer {
-      margin: 1rem;
-      font-size: 0.9em;
-      color: #555;
-      text-align: center;
-    }
+    /* Styles for the explanation section are in styles.css */
   </style>
 </head>
 <body>
@@ -108,9 +49,11 @@
     <div class="control-box">
       <button id="stepBtn">Step</button>
       <button id="resetBtn">Reset</button>
+      <div id="alphaDisplay">Current accepted α: --</div> <!-- Use shared style -->
     </div>
   </div>
 
+  <!-- Use the specific plot container class -->
   <div id="plot" class="plot-container"></div>
 
   <div id="explanation">
@@ -122,13 +65,13 @@
       $$ f'(x) = 4x^3 - 12x + 1. $$
     </p>
     <p>
-      Suppose we are at some $x^{(t)}$. We want to choose a step size $\alpha$ (the learning rate) 
+      Suppose we are at some $x^{(t)}$. We want to choose a step size $\alpha$ (the learning rate)
       for gradient descent:
       $$ x^{(t+1)} = x^{(t)} - \alpha \, f'(x^{(t)}). $$
     </p>
     <p>
-      Instead of picking a fixed $\alpha$, we use the 
-      <strong>backtracking line search</strong> with the 
+      Instead of picking a fixed $\alpha$, we use the
+      <strong>backtracking line search</strong> with the
       <strong>Armijo condition</strong>:
     </p>
     <ul>
@@ -139,7 +82,7 @@
         We test if
         $$ f(x^{(t)} - \alpha f'(x^{(t)})) \le
            f(x^{(t)}) - c \,\alpha\, [f'(x^{(t)})]^2, $$
-        where $c$ (Armijo parameter, typically around 0.5) 
+        where $c$ (Armijo parameter, typically around 0.5)
         is also adjustable above.
       </li>
       <li>
@@ -153,26 +96,29 @@
       In this demo, each time you press <strong>Step</strong>, we:
       <ol>
         <li>Compute $g = f'(x)$ at the current point $x$.</li>
-        <li>Try $\alpha_0$ from the slider, and if needed, keep halving 
+        <li>Try $\alpha_0$ from the slider, and if needed, keep halving
             it until the Armijo condition is met.</li>
-        <li>Plot each tested $\alpha$ as a <span style="color:gold">yellow point</span> 
+        <li>Plot each tested $\alpha$ as a <span style="color:#FFBF00">gold point</span>
             on the function graph, showing <em>where we'd land</em> if we used that step size.</li>
-        <li>Use the final accepted $\alpha$ to move to 
+        <li>Use the final accepted $\alpha$ to move to
             $x \leftarrow x - \alpha\,g$, plot the updated $x$ as a <span style="color:red">red point</span>.</li>
       </ol>
     </p>
     <p>
       Press <strong>Reset</strong> to choose a new random initial $x \in [-3,3]$.
-      Adjust $\alpha_0$ or $c$ to see how more or fewer halving steps 
+      Adjust $\alpha_0$ or $c$ to see how more or fewer halving steps
       may be needed to find a suitable $\alpha$.
     </p>
   </div>
 
   <div class="footer">
-    <em>This example focuses on the 1D line search that determines the step size 
+    <em>This example focuses on the 1D line search that determines the step size
     to satisfy Armijo's sufficient decrease condition.</em>
   </div>
 </div>
+
+<!-- Include shared JS utilities -->
+<script src="plotUtils.js"></script>
 
 <script>
 // ------------------------------------------------------------
@@ -217,29 +163,29 @@ let testedTrace = {
   x: [],
   y: [],
   mode: 'markers',
-  marker: {color: 'gold', size: 6, symbol:'circle-open'},
+  marker: {color: '#FFBF00', size: 6, symbol:'circle-open'}, // Use same gold color
   name: 'Tested α Steps'
 };
 
-// Plot layout
+// Plot layout (1D specific)
 let layout = {
   title: 'Line Search Demo',
   xaxis: {title: 'x', range: [XMIN, XMAX]},
-  yaxis: {title: 'f(x)'}
+  yaxis: {title: 'f(x)'},
+  showlegend: true
 };
 
 // ------------------------------------------------------------
-// 2) Current x, data structures
+// 2) Current x, path data, and UI elements
 let currentX = 0.0;
-let iteration = 0;
 let pathX = [];
 let pathY = [];
-let testedX = [];
-let testedY = [];
+const alphaDisplay = document.getElementById("alphaDisplay");
+const stepBtn = document.getElementById("stepBtn");
+const resetBtn = document.getElementById("resetBtn");
 
-// 3) The line search step
+// 3) The line search step function
 function lineSearchStep() {
-  iteration += 1;
   const alpha0 = parseFloat(document.getElementById("alpha0Slider").value);
   const c = parseFloat(document.getElementById("cSlider").value);
 
@@ -247,95 +193,68 @@ function lineSearchStep() {
   const fx = f(currentX);
 
   let alpha = alpha0;
-  let lhs = f(currentX - alpha*g);
-  let rhs = fx - c*alpha*g*g;
+  let testedX = []; // Points tested in this step
+  let testedY = [];
+  let accepted = false;
 
-  testedX = [];
-  testedY = [];
+  // Backtracking loop
+  for (let k = 0; k < 10; k++) { // Limit iterations
+    let trialX = currentX - alpha * g;
+    let trialY = f(trialX);
+    testedX.push(trialX);
+    testedY.push(trialY);
 
-  // We'll push tested points in testedX,testedY
-  // so we can plot them as yellow circle-open markers
-  while (lhs > rhs) {
-    // record attempt
-    testedX.push(currentX - alpha*g);
-    testedY.push(lhs);
-
-    alpha *= 0.5;
-    lhs = f(currentX - alpha*g);
-    rhs = fx - c*alpha*g*g;
+    // Armijo condition check
+    if (trialY <= fx - c * alpha * (g * g)) {
+      accepted = true;
+      break; // Found suitable alpha
+    }
+    alpha /= 2.0; // Reduce alpha
   }
 
-  // record the final attempt that succeeded
-  testedX.push(currentX - alpha*g);
-  testedY.push(lhs);
+  if (!accepted) {
+      console.warn("Line search failed to find suitable alpha after 10 halvings.");
+      alpha = 0; // Don't move if search fails badly
+  }
 
-  // update x
-  currentX = currentX - alpha*g;
+  // Update current position
+  currentX = currentX - alpha * g;
+  alphaDisplay.textContent = `Current accepted α: ${alpha.toFixed(4)}`;
 
   pathX.push(currentX);
   pathY.push(f(currentX));
 
-  // update the plot
-  Plotly.restyle('plot', {
-    x: [testedX],
-    y: [testedY]
-  }, [2]); // testedTrace is index 2
-
-  Plotly.restyle('plot', {
-    x: [pathX],
-    y: [pathY]
-  }, [1]); // pathTrace is index 1
+  // Update Plotly traces
+  Plotly.restyle('plot', { x: [pathX], y: [pathY] }, [1]); // Update path trace
+  Plotly.restyle('plot', { x: [testedX], y: [testedY] }, [2]); // Update tested points trace for this step
 }
 
-// ------------------------------------------------------------
-// 4) Reset logic
+// 4) Reset function
 function resetAll() {
-  iteration = 0;
-  // random init
-  currentX = XMIN + (XMAX - XMIN)*Math.random();
+  currentX = XMIN + (XMAX - XMIN) * Math.random(); // Random start in range
   pathX = [currentX];
   pathY = [f(currentX)];
-  testedX = [];
-  testedY = [];
+  alphaDisplay.textContent = "Current accepted α: --";
 
-  Plotly.newPlot('plot', [funcTrace,
-                          {
-                            x: pathX, y: pathY,
-                            mode: 'lines+markers',
-                            line: {color: 'red', width: 2},
-                            marker: {color: 'red', size: 6},
-                            name: 'Accepted Steps'
-                          },
-                          {
-                            x: testedX, y: testedY,
-                            mode: 'markers',
-                            marker: {color: 'gold', size: 6, symbol:'circle-open'},
-                            name: 'Tested α Steps'
-                          }
-                         ], layout);
+  // Re-initialize plot with function trace and reset path/tested traces
+  pathTrace.x = pathX;
+  pathTrace.y = pathY;
+  testedTrace.x = [];
+  testedTrace.y = [];
+  Plotly.newPlot('plot', [funcTrace, pathTrace, testedTrace], layout);
 }
 
-// ------------------------------------------------------------
-// 5) UI hooking
-document.getElementById("stepBtn").onclick = lineSearchStep;
-document.getElementById("resetBtn").onclick = resetAll;
+// 5) UI Wiring
+// Use setupSlider utility for sliders
+setupSlider('alpha0Slider', 'alpha0Value');
+setupSlider('cSlider', 'cValue');
 
-const alpha0Slider = document.getElementById("alpha0Slider");
-const alpha0Value = document.getElementById("alpha0Value");
-alpha0Slider.addEventListener("input", ()=>{
-  alpha0Value.textContent = parseFloat(alpha0Slider.value).toFixed(2);
-});
+stepBtn.addEventListener('click', lineSearchStep);
+resetBtn.addEventListener('click', resetAll);
 
-const cSlider = document.getElementById("cSlider");
-const cValue = document.getElementById("cValue");
-cSlider.addEventListener("input", ()=>{
-  cValue.textContent = parseFloat(cSlider.value).toFixed(2);
-});
+// 6) Initial Setup
+resetAll(); // Initialize plot on load
 
-// ------------------------------------------------------------
-// 6) Initialize
-Plotly.newPlot('plot', [funcTrace, pathTrace, testedTrace], layout);
-resetAll();
 </script>
 </body>
 </html>

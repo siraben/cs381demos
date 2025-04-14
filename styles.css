@@ -1,0 +1,96 @@
+body {
+  margin: 0;
+  background: #fafafa;
+  font-family: sans-serif;
+  color: #333;
+}
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 1rem;
+  /* Added for centering in gradient/bowl demos */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+h1 {
+  margin: 1rem 0;
+}
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  /* Added for centering in gradient/bowl demos */
+  justify-content: center;
+}
+.control-box {
+  background: #fff;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 0 6px rgba(0,0,0,0.1);
+  min-width: 150px; /* Adjusted slightly */
+}
+label {
+  font-weight: 600;
+  margin-right: 0.5rem;
+}
+button, input[type=range], select {
+  cursor: pointer;
+  margin: 0.25rem 0;
+}
+input[type=range] {
+  width: 100%;
+}
+.plot-container {
+  width: 700px;
+  max-width: 90vw;
+  height: 600px;
+  background: #fff;
+  box-shadow: 0 0 8px rgba(0,0,0,0.1);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+.footer {
+  margin: 1rem;
+  font-size: 0.9em;
+  color: #555;
+  text-align: center;
+  max-width: 800px; /* Added for gradient/bowl demos */
+}
+p {
+  line-height: 1.4;
+}
+
+/* Specific styles from gradient/bowl/line that might be useful */
+#explanation, #notesBlock, #equationBlock {
+  background: #fff;
+  padding: 1rem;
+  margin-top: 1rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 0 6px rgba(0,0,0,0.1);
+  max-width: 800px;
+  line-height: 1.4;
+}
+#explanation h3, #notesBlock h3 {
+  margin-top: 0;
+}
+#explanation p, #explanation li, #notesBlock p, #notesBlock li, #equationBlock p {
+  margin: 0.5rem 0;
+}
+#alphaDisplay {
+  font-weight: 600;
+  margin-top: 0.5rem;
+  color: #444;
+}
+
+/* Style for line.html plots */
+.line-plot-container {
+  width: 800px;
+  max-width: 90vw;
+  height: 500px;
+  background: #fff;
+  box-shadow: 0 0 8px rgba(0,0,0,0.1);
+  border-radius: 0.5rem;
+  overflow: hidden;
+} 
