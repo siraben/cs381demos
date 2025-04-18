@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>PCA Demo</title>
+
+  <!-- Social Media Preview Tags -->
+  <meta property="og:title" content="PCA Demo">
+  <meta property="og:description" content="Visualize Principal Component Analysis (PCA) on a 2D dataset, showing data projection onto principal components.">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="PCA Demo">
+  <meta name="twitter:description" content="Visualize Principal Component Analysis (PCA) on a 2D dataset, showing data projection onto principal components.">
+
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <!-- MathJax for equation rendering -->
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+  <!-- Link shared CSS -->
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Styles specific to PCA demo, if any */
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Principal Component Analysis (PCA) Demo</h1>
+  <p>
+    This page demonstrates Principal Component Analysis (PCA) on a 2D dataset. PCA finds the directions (principal components)
+    that capture the most variance in the data. It's often used for dimensionality reduction.
+  </p>
+
+  <div class="controls">
+    <div class="control-box">
+      <label for="numPointsSlider">Number of Points:</label><br/>
+      <input type="range" id="numPointsSlider" min="20" max="200" step="10" value="50" /><br/>
+      <span id="numPointsValue">50</span>
+    </div>
+     <div class="control-box">
+      <label for="spreadSlider">Data Spread (Std Dev):</label><br/>
+      <input type="range" id="spreadSlider" min="0.5" max="3.0" step="0.1" value="1.5" /><br/>
+      <span id="spreadValue">1.5</span>
+    </div>
+    <div class="control-box">
+      <button id="resetBtn">Generate New Data</button>
+    </div>
+  </div>
+
+  <div id="plot" class="plot-container"></div>
+
+  <div id="explanation">
+    <h3>PCA Overview</h3>
+    <p>
+        Principal Component Analysis (PCA) is a technique used to emphasize variation and bring out strong patterns in a dataset. It transforms the data into a new coordinate system such that the greatest variance by any projection of the data comes to lie on the first coordinate (called the first principal component), the second greatest variance on the second coordinate, and so on.
+    </p>
+    <p>
+        For a dataset \(X\) with \(n\) data points \(\mathbf{x}_i \in \mathbb{R}^d\):
+        <ol>
+            <li>Calculate the mean: \(\mathbf{\mu} = \frac{1}{n} \sum_{i=1}^n \mathbf{x}_i\)</li>
+            <li>Center the data: \(\mathbf{z}_i = \mathbf{x}_i - \mathbf{\mu}\)</li>
+            <li>Calculate the covariance matrix: \(C = \frac{1}{n-1} Z^T Z\), where \(Z\) is the matrix whose rows are \(\mathbf{z}_i\).</li>
+            <li>Find the eigenvectors (\(\mathbf{v}_k\)) and eigenvalues (\(\lambda_k\)) of \(C\). These eigenvectors are the principal components, and the eigenvalues represent the variance captured by each component.</li>
+        </ol>
+        The principal components are orthogonal directions of maximum variance in the data.
+    </p>
+    <h3>Visualization Details</h3>
+    <ul>
+      <li>Blue dots represent the generated 2D data points \(\mathbf{x}_i\).</li>
+      <li>The red vectors originating from the data mean show the <strong>principal components</strong> (eigenvectors of the covariance matrix). The length of each vector is proportional to the standard deviation along that component (square root of the eigenvalue).</li>
+      <li>The data is centered around its mean before PCA is applied.</li>
+    </ul>
+    <p>
+        Adjust the sliders and regenerate data to see how the number of points and their spread affect the principal components identified by PCA.
+    </p>
+  </div>
+
+  <div class="back-link">
+    <a href="index.html">&larr; Back to Homepage</a>
+  </div>
+
+  <div class="footer">
+    <em>Visualizing PCA on 2D data, highlighting principal components.</em>
+  </div>
+</div>
+
+<!-- Include shared plot utils -->
+<script src="plotUtils.js"></script>
+<!-- PCA specific script -->
+<script src="pca.js"></script>
+
+</body>
+</html> 

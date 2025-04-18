@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>PCA for Dimensionality Reduction (3D to 2D)</title>
+
+  <!-- Social Media Preview Tags -->
+  <meta property="og:title" content="PCA 3D to 2D Reduction Demo">
+  <meta property="og:description" content="Visualize PCA reducing 3D data to 2D by projecting onto the top two principal components.">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="PCA 3D to 2D Reduction Demo">
+  <meta name="twitter:description" content="Visualize PCA reducing 3D data to 2D by projecting onto the top two principal components.">
+
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <!-- MathJax for equation rendering -->
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+  <!-- Link shared CSS -->
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .plot-container-3d {
+      display: flex;
+      flex-wrap: wrap; /* Allow wrapping on smaller screens */
+      gap: 20px; /* Space between plots */
+      margin-bottom: 1.5rem;
+    }
+    .plot-box {
+      flex: 1; /* Each plot takes equal space */
+      min-width: 350px; /* Minimum width before wrapping */
+      height: 450px; /* Fixed height */
+      border: 1px solid #ccc;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .plot-title {
+        font-size: 1.1em;
+        font-weight: bold;
+        text-align: center;
+        margin-top: 5px; /* Space above plot within the box */
+        color: #333;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>PCA for Dimensionality Reduction (3D to 2D)</h1>
+  <p>
+    This demo illustrates how Principal Component Analysis (PCA) can be used to reduce the dimensionality of data.
+    We start with 3D data, apply PCA, and project the data onto the 2D subspace spanned by the two principal components
+    that capture the most variance.
+  </p>
+
+  <div class="controls">
+    <div class="control-box">
+      <label for="numPointsSlider">Number of Points:</label><br/>
+      <input type="range" id="numPointsSlider" min="30" max="300" step="10" value="100" /><br/>
+      <span id="numPointsValue">100</span>
+    </div>
+     <div class="control-box">
+      <label for="spreadSlider">Data Spread:</label><br/>
+      <input type="range" id="spreadSlider" min="0.5" max="4.0" step="0.1" value="2.0" /><br/>
+      <span id="spreadValue">2.0</span>
+    </div>
+    <div class="control-box">
+      <button id="resetBtn">Generate New Data</button>
+    </div>
+  </div>
+
+  <div class="plot-container-3d">
+      <div id="plot3d" class="plot-box"></div>
+      <div id="plot2d" class="plot-box"></div>
+  </div>
+
+  <div id="varianceInfo" style="text-align: center; margin-bottom: 1rem;">
+      Variance captured by PC1: -, PC2: -, Total: -
+  </div>
+
+  <div id="explanation">
+    <h3>PCA for Dimensionality Reduction</h3>
+    <p>
+        High-dimensional data is often difficult to visualize and analyze. Dimensionality reduction techniques aim to represent the data in a lower-dimensional space while retaining as much meaningful information as possible. PCA achieves this by finding orthogonal axes (principal components) along which the data has the maximum variance.
+    </p>
+    <p>
+        For a 3D dataset \(X = \{\mathbf{x}_i \in \mathbb{R}^3\}\), PCA involves:
+        <ol>
+            <li>Calculate the mean \(\mathbf{\mu}\) and center the data: \(\mathbf{z}_i = \mathbf{x}_i - \mathbf{\mu}\).</li>
+            <li>Calculate the 3x3 covariance matrix \(C\).</li>
+            <li>Find the eigenvalues \(\lambda_1 \ge \lambda_2 \ge \lambda_3\) and corresponding eigenvectors \(\mathbf{v}_1, \mathbf{v}_2, \mathbf{v}_3\) of \(C\).</li>
+            <li>The eigenvectors \(\mathbf{v}_1, \mathbf{v}_2\) corresponding to the two largest eigenvalues \(\lambda_1, \lambda_2\) define the 2D subspace that captures the most variance.</li>
+            <li>Project the centered data points \(\mathbf{z}_i\) onto this subspace: \(\mathbf{p}_i = [\mathbf{v}_1^T \mathbf{z}_i, \mathbf{v}_2^T \mathbf{z}_i] \in \mathbb{R}^2\).</li>
+        </ol>
+        The fraction of total variance captured by the first \(k\) components is \( (\sum_{j=1}^k \lambda_j) / (\sum_{j=1}^d \lambda_j) \).
+    </p>
+    <h3>Visualization Details</h3>
+    <ul>
+      <li><strong>Left Plot (3D):</strong> Shows the original 3D data points and the three principal component vectors (scaled by standard deviation) originating from the data mean.</li>
+      <li><strong>Right Plot (2D):</strong> Shows the 2D data points obtained by projecting the original data onto the plane defined by the first two principal components (PC1 and PC2).</li>
+      <li>The variance captured by each of the top two components (and their total) is displayed above the explanation.</li>
+    </ul>
+  </div>
+
+  <div class="back-link">
+    <a href="index.html">&larr; Back to Homepage</a>
+  </div>
+
+  <div class="footer">
+    <em>Visualizing PCA dimensionality reduction from 3D to 2D.</em>
+  </div>
+</div>
+
+<!-- Include shared plot utils -->
+<script src="plotUtils.js"></script>
+<!-- Include a small numeric library for matrix operations if needed, or implement helpers -->
+<!-- For simplicity, we might implement 3x3 eigen calculation directly -->
+<script src="pca_3d_reduction.js"></script>
+
+</body>
+</html> 
