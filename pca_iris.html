@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title>PCA on Iris Dataset: Visualization & Reconstruction</title>
+
+  <!-- Social Media Preview Tags -->
+  <meta property="og:title" content="PCA on Iris Dataset Demo">
+  <meta property="og:description" content="Visualize PCA projection of the Iris dataset and see reconstruction error vs. number of components.">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="PCA on Iris Dataset Demo">
+  <meta name="twitter:description" content="Visualize PCA projection of the Iris dataset and see reconstruction error vs. number of components.">
+
+  <!-- Libraries -->
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <!-- <script src="https://cdn.jsdelivr.net/npm/scikitjs@1.4.0/dist/scikit.min.js"></script> -->
+  <!-- <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script> --> <!-- Using Plain JS Instead -->
+  <!-- MathJax for equation rendering -->
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+  <!-- Link shared CSS -->
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .plot-container-iris {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      margin-bottom: 1.5rem;
+    }
+    .plot-box {
+      flex: 1;
+      min-width: 400px;
+      height: 450px;
+      border: 1px solid #ccc;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>PCA on Iris Dataset: Visualization & Reconstruction</h1>
+  <p>
+    This demo applies Principal Component Analysis (PCA) to the classic Iris dataset (4 features, 3 species).
+    It visualizes the data projected onto the first two principal components (PC1, PC2) and shows how the reconstruction
+    error decreases as more principal components are used.
+  </p>
+
+  <!-- Placeholder for status messages -->
+  <div id="status" style="text-align: center; margin-bottom: 1rem; color: #555;">Loading data...</div>
+
+  <div class="plot-container-iris">
+      <div id="plotProjection" class="plot-box"></div>
+      <div id="plotMSE" class="plot-box"></div>
+  </div>
+
+  <div id="explanation">
+    <h3>PCA for Visualization</h3>
+    <p>
+        The Iris dataset has 4 features (sepal length, sepal width, petal length, petal width), making it impossible to visualize directly in its original space. PCA can project this 4D data into a lower-dimensional space (e.g., 2D) for visualization.
+        The left plot shows the data projected onto the plane spanned by the first two principal components (PC1 and PC2), which capture the directions of maximum variance. Points are colored by their Iris species (Setosa, Versicolor, Virginica). This often reveals the inherent structure and separability of the classes.
+    </p>
+    <h3>PCA for Reconstruction</h3>
+    <p>
+        PCA components form a new basis for the data. We can reconstruct an approximation of the original data using only a subset of the principal components. The formula for reconstructing a centered data point \(\mathbf{z}_i\) using the first \(k\) components (eigenvectors \(\mathbf{v}_j\)) is:
+        \[ \mathbf{\hat{z}}_i^{(k)} = \sum_{j=1}^k (\mathbf{z}_i^T \mathbf{v}_j) \mathbf{v}_j \]
+        The right plot shows the Mean Squared Error (MSE) between the original (centered) data and the reconstructed data as we increase the number of principal components (\(k=1, 2, 3, 4\)).
+        \[ \text{MSE}^{(k)} = \frac{1}{n} \sum_{i=1}^n \| \mathbf{z}_i - \mathbf{\hat{z}}_i^{(k)} \|^2 \]
+        As more components are included, the reconstruction becomes more accurate, and the MSE decreases. Using all components (k=4) results in perfect reconstruction (MSE=0, ignoring numerical precision issues).
+    </p>
+  </div>
+
+  <div class="back-link">
+    <a href="index.html">&larr; Back to Homepage</a>
+  </div>
+
+  <div class="footer">
+    <em>PCA on Iris dataset using JavaScript and Plotly.js.</em>
+  </div>
+</div>
+
+<!-- Include the specific script for this demo -->
+<script src="pca_iris.js" defer></script>
+
+</body>
+</html> 
