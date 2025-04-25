@@ -138,11 +138,11 @@
         <li><strong>Backward Pass (Backpropagation):</strong> Calculate the gradient of the loss with respect to each weight and bias. This uses the chain rule, propagating the error backward from the output layer:
             <ul>
                 <li>Output layer error delta: \( \delta_o = (\hat{y} - y) \cdot g'(z_o) \) where \(g'\) is the sigmoid derivative.</li>
-                <li>Hidden layer error delta(s): \( \delta_{h_j} = (\delta_o w_{oj}) \cdot g'(z_{h_j}) \)</li>
-                <li>Output weight gradients: \( \frac{\partial L}{\partial w_{oj}} = \delta_o \cdot a_{h_j} \)</li>
-                <li>Output bias gradient: \( \frac{\partial L}{\partial b_{o}} = \delta_o \)</li>
-                <li>Hidden weight gradients: \( \frac{\partial L}{\partial w_{ji}} = \delta_{h_j} \cdot x_i \)</li>
-                <li>Hidden bias gradients: \( \frac{\partial L}{\partial b_{h_j}} = \delta_{h_j} \)</li>
+                <li>Hidden layer error delta(s): \( \delta_{h_j} = (\sum_k \delta_o w_{kj}) \cdot g'(z_{h_j}) \) (Sum over output neurons k, only one here)</li>
+                <li>Output layer weight gradients: \( \frac{\partial L}{\partial w_{oj}} = \delta_o \cdot a_{h_j} \)</li>
+                <li>Output layer bias gradient: \( \frac{\partial L}{\partial b_{o}} = \delta_o \)</li>
+                <li>Hidden layer weight gradients: \( \frac{\partial L}{\partial w_{ji}} = \delta_{h_j} \cdot x_i \)</li>
+                <li>Hidden layer bias gradients: \( \frac{\partial L}{\partial b_{h_j}} = \delta_{h_j} \)</li>
             </ul>
         </li>
         <li><strong>Update Weights:</strong> Adjust weights and biases opposite to their gradients, scaled by learning rate \(\alpha\):
