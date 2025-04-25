@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Loss Landscape Visualization</title>
+
+  <!-- Social Media Preview Tags -->
+  <meta property="og:title" content="Neural Network Loss Landscape Demo">
+  <meta property="og:description" content="Visualize the 3D loss landscape of a simple neural network for two chosen parameters.">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Neural Network Loss Landscape Demo">
+  <meta name="twitter:description" content="Visualize the 3D loss landscape of a simple neural network for two chosen parameters.">
+
+  <!-- Plotly for 3D plots -->
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+  <!-- MathJax for equation rendering -->
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+
+  <!-- Link shared CSS -->
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Specific styles for this page */
+    #lossLandscapePlot {
+        height: 600px; /* Make plot taller */
+    }
+    #status {
+        margin: 10px 0;
+        font-style: italic;
+        text-align: center;
+        min-height: 1.2em;
+    }
+    .parameter-info {
+        text-align: center;
+        margin-bottom: 15px;
+        font-size: 0.9em;
+        color: #555;
+    }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Loss Landscape Visualization</h1>
+  <p>Visualizing the high-dimensional loss surface of a neural network by plotting a 3D slice based on two chosen parameters.</p>
+
+  <div class="controls">
+        <div class="control-box">
+            <label for="numPointsSlider">Points Per Class:</label><br/>
+            <input type="range" id="numPointsSlider" min="10" max="100" step="10" value="30" /><br/>
+            <span id="numPointsValue">30</span>
+        </div>
+        <div class="control-box">
+            <label for="param1Select">Parameter 1 (X-axis):</label><br/>
+            <select id="param1Select">
+                <option value="wh_0_0" selected>Hidden Weight w_h[0][0]</option>
+                <option value="wh_1_1">Hidden Weight w_h[1][1]</option>
+                <option value="bh_0">Hidden Bias b_h[0]</option>
+                <option value="wo_0_0">Output Weight w_o[0][0]</option>
+                <option value="bo_0">Output Bias b_o[0]</option>
+            </select>
+        </div>
+         <div class="control-box">
+            <label for="param2Select">Parameter 2 (Y-axis):</label><br/>
+            <select id="param2Select">
+                <option value="wh_0_0">Hidden Weight w_h[0][0]</option>
+                <option value="wh_1_1">Hidden Weight w_h[1][1]</option>
+                <option value="bh_0">Hidden Bias b_h[0]</option>
+                <option value="wo_0_0" selected>Output Weight w_o[0][0]</option>
+                <option value="bo_0">Output Bias b_o[0]</option>
+            </select>
+        </div>
+        <div class="control-box">
+            <label for="rangeSlider">Parameter Range:</label><br/>
+            <input type="range" id="rangeSlider" min="1" max="5" step="0.5" value="2.5" /><br/>
+            <span>Center ± </span><span id="rangeValue">2.5</span>
+        </div>
+        <div class="control-box">
+            <label for="resolutionSlider">Grid Resolution:</label><br/>
+            <input type="range" id="resolutionSlider" min="10" max="30" step="2" value="16" /><br/>
+            <span id="resolutionValue">16</span>x<span id="resolutionValue2">16</span>
+        </div>
+       <div class="control-box button-group">
+          <button id="generateBtn">Generate Loss Landscape</button>
+        </div>
+  </div>
+
+   <div class="parameter-info" id="fixedParamInfo">Other parameters are fixed at initial random values.</div>
+   <div id="status">Status: Ready. Generate landscape to view plot.</div>
+
+  <div id="lossLandscapePlot" class="plot-container">
+      <!-- Plotly 3D surface plot -->
+  </div>
+
+  <div id="explanation">
+    <h3>Understanding the Loss Landscape</h3>
+    <p>
+        Training a neural network involves finding the set of weights and biases that minimize a <strong>loss function</strong> over the training data. This loss function defines a surface in a high-dimensional space, where each dimension corresponds to a trainable parameter (weight or bias) in the network. The height of the surface at any point represents the loss value for that specific combination of parameter values.
+    </p>
+    <p>
+        This high-dimensional surface is called the <strong>loss landscape</strong>. Gradient descent algorithms (like the one used in Part 3) work by iteratively taking steps "downhill" on this landscape, following the negative gradient to find points with lower loss.
+    </p>
+    <p>
+        Visualizing the entire landscape is impossible because it has too many dimensions. However, we can get an intuition by visualizing a <strong>2D slice</strong> of it. This demo does this by:
+        <ol>
+            <li>Defining a simple neural network (2 inputs, 3 hidden, 1 output).</li>
+            <li>Generating the concentric circles dataset.</li>
+            <li>Choosing <strong>two specific parameters</strong> (e.g., one hidden weight and one output weight) from the network.</li>
+            <li>Defining a grid of values for these two parameters around their initial values.</li>
+            <li>For each point on the grid:
+                <ul>
+                    <li>Temporarily set the two chosen parameters to the grid values, keeping all other parameters fixed at their initial random values.</li>
+                    <li>Calculate the <strong>total loss</strong> (average Mean Squared Error) over the entire dataset using these temporary parameters.</li>
+                </ul>
+            </li>
+            <li>Plotting the calculated loss as the height (Z-axis) against the values of the two chosen parameters (X and Y axes), creating a 3D surface plot.</li>
+        </ol>
+        This 3D plot represents a slice through the high-dimensional loss landscape. Valleys correspond to parameter combinations yielding low loss, while hills indicate high loss. The goal of training is to navigate this landscape to find a deep valley.
+    </p>
+    <p><i>Note: Generating the landscape can be slow, especially with higher resolution, as it requires many forward passes over the entire dataset.</i></p>
+  </div>
+
+  <div class="back-link">
+    <a href="index.html">&larr; Back to Homepage</a>
+  </div>
+
+  <div class="footer">
+    <em>Visualizing a 3D slice of the neural network loss landscape.</em>
+  </div>
+</div>
+
+<!-- Include shared JS utilities -->
+<script src="plotUtils.js"></script>
+
+<script>
+// --- Constants & Global State ---
+const NUM_INPUTS = 2;
+const NUM_HIDDEN = 3;
+const NUM_OUTPUTS = 1;
+
+let weights_h, biases_h, weights_o, bias_o; // Network parameters (will be initialized)
+let initial_params = {}; // Store initial values
+let dataset = { data: [], labels: [] };
+
+// --- DOM Elements ---
+const numPointsSlider = document.getElementById('numPointsSlider');
+const numPointsValue = document.getElementById('numPointsValue');
+const param1Select = document.getElementById('param1Select');
+const param2Select = document.getElementById('param2Select');
+const rangeSlider = document.getElementById('rangeSlider');
+const rangeValue = document.getElementById('rangeValue');
+const resolutionSlider = document.getElementById('resolutionSlider');
+const resolutionValue = document.getElementById('resolutionValue');
+const resolutionValue2 = document.getElementById('resolutionValue2');
+const generateBtn = document.getElementById('generateBtn');
+const statusDiv = document.getElementById('status');
+const fixedParamInfoDiv = document.getElementById('fixedParamInfo');
+const lossLandscapePlotDiv = document.getElementById('lossLandscapePlot');
+
+// --- Network & Math Functions ---
+const sigmoid = z => 1 / (1 + Math.exp(-z));
+const mseLoss = (y_true, y_pred) => 0.5 * (y_pred - y_true) ** 2;
+
+// He weight initialization
+function initializeWeights() {
+    // Hidden Layer
+    weights_h = Array(NUM_HIDDEN).fill(0).map(() =>
+        Array(NUM_INPUTS).fill(0).map(() => (Math.random() - 0.5) * Math.sqrt(2 / NUM_INPUTS))
+    );
+    biases_h = Array(NUM_HIDDEN).fill(0).map(() => (Math.random() - 0.5) * 0.1); // Small random biases
+
+    // Output Layer
+    weights_o = Array(NUM_OUTPUTS).fill(0).map(() =>
+        Array(NUM_HIDDEN).fill(0).map(() => (Math.random() - 0.5) * Math.sqrt(2 / NUM_HIDDEN))
+    );
+    bias_o = Array(NUM_OUTPUTS).fill(0).map(() => (Math.random() - 0.5) * 0.1); // Small random biases
+
+    // Store initial values separately for reference
+    initial_params = {
+        wh: weights_h.map(row => [...row]), // Deep copy
+        bh: [...biases_h],
+        wo: weights_o.map(row => [...row]),
+        bo: [...bias_o]
+    };
+    console.log("Weights initialized.");
+}
+
+function forwardPass(inputs, current_wh, current_bh, current_wo, current_bo) {
+    // Hidden Layer
+    const z_h = Array(NUM_HIDDEN).fill(0);
+    const a_h = Array(NUM_HIDDEN).fill(0);
+    for (let j = 0; j < NUM_HIDDEN; j++) {
+        for (let i = 0; i < NUM_INPUTS; i++) {
+            z_h[j] += inputs[i] * current_wh[j][i];
+        }
+        z_h[j] += current_bh[j];
+        a_h[j] = sigmoid(z_h[j]);
+    }
+
+    // Output Layer
+    const z_o = Array(NUM_OUTPUTS).fill(0);
+    const a_o = Array(NUM_OUTPUTS).fill(0);
+    for (let k = 0; k < NUM_OUTPUTS; k++) {
+        for (let j = 0; j < NUM_HIDDEN; j++) {
+            z_o[k] += a_h[j] * current_wo[k][j];
+        }
+        z_o[k] += current_bo[k];
+        a_o[k] = sigmoid(z_o[k]);
+    }
+    return a_o[0]; // Return final prediction (assuming single output)
+}
+
+// Calculate total loss over the dataset for a given set of weights
+function calculateTotalLoss(current_wh, current_bh, current_wo, current_bo) {
+    if (!dataset || dataset.data.length === 0) return Infinity;
+
+    let totalLoss = 0;
+    for (let i = 0; i < dataset.data.length; i++) {
+        const inputs = dataset.data[i];
+        const target = dataset.labels[i];
+        const prediction = forwardPass(inputs, current_wh, current_bh, current_wo, current_bo);
+        totalLoss += mseLoss(target, prediction);
+    }
+    return totalLoss / dataset.data.length; // Average loss
+}
+
+// --- Dataset Generation ---
+// Use Box-Muller for better Gaussian random numbers
+function gaussianRandom() {
+    let u = 0, v = 0;
+    while(u === 0) u = Math.random();
+    while(v === 0) v = Math.random();
+    return Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
+}
+
+function generateCircles(numPointsPerClass) {
+    const data = [];
+    const labels = [];
+    const r1 = 1.5, r2 = 4.0, noise = 0.5;
+    for (let i = 0; i < numPointsPerClass; i++) {
+        // Class 0
+        const r_c0 = r1 + gaussianRandom() * noise;
+        const angle0 = Math.random() * 2 * Math.PI;
+        data.push([r_c0 * Math.cos(angle0), r_c0 * Math.sin(angle0)]);
+        labels.push(0);
+        // Class 1
+        const r_c1 = r2 + gaussianRandom() * noise;
+        const angle1 = Math.random() * 2 * Math.PI;
+        data.push([r_c1 * Math.cos(angle1), r_c1 * Math.sin(angle1)]);
+        labels.push(1);
+    }
+    dataset = { data, labels };
+    console.log(`Generated circles dataset with ${numPointsPerClass} points per class.`);
+}
+
+// --- Loss Landscape Generation ---
+
+// Function to get/set a specific parameter by string key (e.g., "wh_0_0")
+function getParamValue(key) {
+    const parts = key.split('_');
+    const type = parts[0];
+    const indices = parts.slice(1).map(Number);
+    if (type === 'wh') return initial_params.wh[indices[0]][indices[1]];
+    if (type === 'bh') return initial_params.bh[indices[0]];
+    if (type === 'wo') return initial_params.wo[indices[0]][indices[1]];
+    if (type === 'bo') return initial_params.bo[indices[0]];
+    return 0; // Should not happen
+}
+
+function setParamValue(key, value, temp_wh, temp_bh, temp_wo, temp_bo) {
+    const parts = key.split('_');
+    const type = parts[0];
+    const indices = parts.slice(1).map(Number);
+    if (type === 'wh') temp_wh[indices[0]][indices[1]] = value;
+    else if (type === 'bh') temp_bh[indices[0]] = value;
+    else if (type === 'wo') temp_wo[indices[0]][indices[1]] = value;
+    else if (type === 'bo') temp_bo[indices[0]] = value;
+}
+
+async function generateLossLandscapeData() {
+    statusDiv.textContent = 'Status: Generating loss landscape data... Please wait.';
+    generateBtn.disabled = true;
+
+    const param1Key = param1Select.value;
+    const param2Key = param2Select.value;
+    if (param1Key === param2Key) {
+        statusDiv.textContent = 'Status: Error - Please select two different parameters.';
+        generateBtn.disabled = false;
+        return;
+    }
+
+    const center1 = getParamValue(param1Key);
+    const center2 = getParamValue(param2Key);
+    const range = parseFloat(rangeSlider.value);
+    const resolution = parseInt(resolutionSlider.value);
+
+    const param1Values = [];
+    const param2Values = [];
+    const lossValues = [];
+
+    const step = (2 * range) / (resolution - 1);
+
+    // Create grid for parameter 1
+    for (let i = 0; i < resolution; i++) {
+        param1Values.push(center1 - range + i * step);
+    }
+    // Create grid for parameter 2
+    for (let j = 0; j < resolution; j++) {
+        param2Values.push(center2 - range + j * step);
+    }
+
+    // Wrap the calculation in a promise to allow UI update before blocking
+    await new Promise(resolve => setTimeout(resolve, 10));
+
+    // Iterate through the grid
+    for (let j = 0; j < resolution; j++) {
+        const p2 = param2Values[j];
+        const lossRow = [];
+        // Create temporary weights based on initial values for this row
+        let temp_wh = initial_params.wh.map(row => [...row]);
+        let temp_bh = [...initial_params.bh];
+        let temp_wo = initial_params.wo.map(row => [...row]);
+        let temp_bo = [...initial_params.bo];
+        setParamValue(param2Key, p2, temp_wh, temp_bh, temp_wo, temp_bo);
+
+        for (let i = 0; i < resolution; i++) {
+            const p1 = param1Values[i];
+            // Set the value for param1 (weights are already partially set for p2)
+            setParamValue(param1Key, p1, temp_wh, temp_bh, temp_wo, temp_bo);
+
+            // Calculate loss for this specific parameter combination
+            const loss = calculateTotalLoss(temp_wh, temp_bh, temp_wo, temp_bo);
+            lossRow.push(loss);
+        }
+        lossValues.push(lossRow);
+         // Update status periodically
+        if (j % Math.max(1, Math.floor(resolution / 5)) === 0) {
+             statusDiv.textContent = `Status: Calculating... ${Math.round((j+1)/resolution*100)}% complete.`;
+             await new Promise(resolve => setTimeout(resolve, 5)); // Yield for UI responsiveness
+        }
+    }
+
+    statusDiv.textContent = 'Status: Plotting landscape...';
+    await new Promise(resolve => setTimeout(resolve, 10));
+
+    plotLossLandscape(param1Values, param2Values, lossValues, param1Key, param2Key);
+
+    statusDiv.textContent = 'Status: Ready.';
+    generateBtn.disabled = false;
+}
+
+// --- Plotting ---
+function plotLossLandscape(xData, yData, zData, xLabel, yLabel) {
+    const trace = {
+        x: xData,
+        y: yData,
+        z: zData,
+        type: 'surface',
+        colorscale: 'Viridis', //'RdBu', // Or 'Viridis', 'Plasma'
+        colorbar: { title: 'Loss (MSE)', titleside: 'right' }
+    };
+
+    const layout = {
+        title: 'Loss Landscape Slice',
+        scene: {
+            xaxis: { title: xLabel },
+            yaxis: { title: yLabel },
+            zaxis: { title: 'Total Loss' }
+        },
+        margin: { l: 50, r: 50, b: 50, t: 50, pad: 4 }
+    };
+
+    Plotly.newPlot(lossLandscapePlotDiv, [trace], layout);
+     fixedParamInfoDiv.textContent = `Visualizing loss vs ${xLabel} and ${yLabel}. Other parameters fixed at initial values.`;
+}
+
+// --- Event Listeners ---
+numPointsSlider.addEventListener('input', () => {
+    numPointsValue.textContent = numPointsSlider.value;
+    generateCircles(parseInt(numPointsSlider.value)); // Regenerate data when slider changes
+});
+rangeSlider.addEventListener('input', () => {
+    rangeValue.textContent = parseFloat(rangeSlider.value).toFixed(1);
+});
+resolutionSlider.addEventListener('input', () => {
+    const res = resolutionSlider.value;
+    resolutionValue.textContent = res;
+    resolutionValue2.textContent = res;
+});
+generateBtn.addEventListener('click', generateLossLandscapeData);
+
+// --- Initial Setup ---
+document.addEventListener('DOMContentLoaded', () => {
+    console.log("Loss Landscape Demo Initializing...");
+    initializeWeights();
+    generateCircles(parseInt(numPointsSlider.value)); // Generate initial dataset
+
+    // Set initial slider display values
+    numPointsValue.textContent = numPointsSlider.value;
+    rangeValue.textContent = parseFloat(rangeSlider.value).toFixed(1);
+    const res = resolutionSlider.value;
+    resolutionValue.textContent = res;
+    resolutionValue2.textContent = res;
+
+    // Initial empty plot
+    Plotly.newPlot(lossLandscapePlotDiv, [], {title: 'Generate landscape to view plot'});
+
+    console.log("Initialization complete.");
+});
+
+</script>
+
+</body>
+</html> 

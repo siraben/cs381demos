@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Neural Networks Part 1: The Neuron</title>
+
+  <!-- Social Media Preview Tags -->
+  <meta property="og:title" content="Neural Networks Part 1: The Neuron Demo">
+  <meta property="og:description" content="Visualize the basic computation of a single neuron (perceptron) with adjustable weights and activation function.">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Neural Networks Part 1: The Neuron Demo">
+  <meta name="twitter:description" content="Visualize the basic computation of a single neuron (perceptron) with adjustable weights and activation function.">
+
+  <!-- Plotly for any visualizations -->
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+  <!-- MathJax for equation rendering -->
+  <script>
+    window.MathJax = {
+      tex: { inlineMath: [['$', '$'], ['\\(', '\\)']] }
+    };
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js" async></script>
+
+  <!-- Link shared CSS -->
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Specific styles for this page */
+    .neuron-diagram {
+      text-align: center;
+      margin-bottom: 1.5rem;
+    }
+    /* Add more styles later for interactive elements */
+  </style>
+</head>
+<body>
+<div class="container">
+  <h1>Neural Networks Part 1: The Neuron</h1>
+  <p>Understanding the fundamental building block of neural networks: the artificial neuron.</p>
+
+  <div class="controls">
+    <!-- Input Sliders -->
+    <div class="control-box">
+        <label for="x1Slider">Input x1:</label><br/>
+        <input type="range" id="x1Slider" min="-2" max="2" step="0.1" value="1" /><br/>
+        <span id="x1Value">1.0</span>
+    </div>
+    <div class="control-box">
+        <label for="x2Slider">Input x2:</label><br/>
+        <input type="range" id="x2Slider" min="-2" max="2" step="0.1" value="-0.5" /><br/>
+        <span id="x2Value">-0.5</span>
+    </div>
+    <!-- Weight Sliders -->
+    <div class="control-box">
+        <label for="w1Slider">Weight w1:</label><br/>
+        <input type="range" id="w1Slider" min="-2" max="2" step="0.1" value="0.8" /><br/>
+        <span id="w1Value">0.8</span>
+    </div>
+    <div class="control-box">
+        <label for="w2Slider">Weight w2:</label><br/>
+        <input type="range" id="w2Slider" min="-2" max="2" step="0.1" value="1.2" /><br/>
+        <span id="w2Value">1.2</span>
+    </div>
+    <!-- Bias Slider -->
+    <div class="control-box">
+        <label for="bSlider">Bias b:</label><br/>
+        <input type="range" id="bSlider" min="-2" max="2" step="0.1" value="-0.5" /><br/>
+        <span id="bValue">-0.5</span>
+    </div>
+    <!-- Activation Function Selector -->
+    <div class="control-box">
+        <label for="activationSelect">Activation:</label><br/>
+        <select id="activationSelect">
+            <option value="sigmoid">Sigmoid</option>
+            <option value="relu">ReLU</option>
+            <option value="tanh">Tanh</option>
+            <option value="step">Step</option>
+        </select>
+    </div>
+  </div>
+
+  <div id="outputDisplay" style="text-align: center; margin: 1rem 0; font-size: 1.1em; background-color: #eee; padding: 10px; border-radius: 5px;">
+      <!-- Calculation details will be shown here -->
+      Calculation: z = ? ; y = g(z) = ?
+  </div>
+
+  <div id="plot" class="plot-container">
+     <!-- Plotly plot of activation function -->
+  </div>
+
+  <div id="explanation">
+    <h3>The Artificial Neuron (Perceptron)</h3>
+    <p>
+      An artificial neuron is a mathematical function conceived as a model of biological neurons. It's the basic unit in an artificial neural network. A simple neuron, often called a Perceptron (when using a step function), takes multiple binary inputs, \(x_1, x_2, ..., x_n\), and produces a single binary output.
+    </p>
+    <p>
+      Each input \(x_i\) is associated with a weight \(w_i\). The neuron calculates a weighted sum of its inputs:
+      \[ z = \sum_{i=1}^n w_i x_i + b \]
+      where \(b\) is the bias term. The bias can be thought of as how easy it is to get the neuron to output a 1.
+    </p>
+    <p>
+      The output \(y\) is then determined by applying an <strong>activation function</strong> \(g\) to the weighted sum \(z\):
+      \[ y = g(z) = g\left( \sum_{i=1}^n w_i x_i + b \right) \]
+    </p>
+    <p>
+      Common activation functions include:
+      <ul>
+        <li><strong>Step Function (Heaviside):</strong> \( g(z) = 1 \text{ if } z \ge 0 \text{ else } 0 \) (Classic Perceptron)</li>
+        <li><strong>Sigmoid:</strong> \( g(z) = \frac{1}{1 + e^{-z}} \) (Outputs between 0 and 1, smooth)</li>
+        <li><strong>ReLU (Rectified Linear Unit):</strong> \( g(z) = \max(0, z) \) (Common in deep learning)</li>
+        <li><strong>Tanh (Hyperbolic Tangent):</strong> \( g(z) = \tanh(z) = \frac{e^z - e^{-z}}{e^z + e^{-z}} \) (Outputs between -1 and 1, smooth)</li>
+      </ul>
+    </p>
+    <p>
+        In this first part, we focus on this basic computation. Later parts will explore how these neurons are connected into networks and trained.
+    </p>
+  </div>
+
+  <div class="back-link">
+    <a href="index.html">&larr; Back to Homepage</a>
+  </div>
+
+  <div class="footer">
+    <em>Part 1 of a Neural Networks series. Focuses on the basic neuron model.</em>
+  </div>
+</div>
+
+<!-- Include shared JS utilities -->
+<script src="plotUtils.js"></script>
+<!-- Specific JS for this demo (if needed) -->
+<!-- <script src="neural_network_1.js"></script> -->
+
+<script>
+// Basic setup or interactivity can go here
+console.log("Neural Network Demo Part 1 Loaded");
+
+// Get references to HTML elements
+const x1Slider = document.getElementById('x1Slider');
+const x1Value = document.getElementById('x1Value');
+const x2Slider = document.getElementById('x2Slider');
+const x2Value = document.getElementById('x2Value');
+const w1Slider = document.getElementById('w1Slider');
+const w1Value = document.getElementById('w1Value');
+const w2Slider = document.getElementById('w2Slider');
+const w2Value = document.getElementById('w2Value');
+const bSlider = document.getElementById('bSlider');
+const bValue = document.getElementById('bValue');
+const activationSelect = document.getElementById('activationSelect');
+const outputDisplay = document.getElementById('outputDisplay');
+const plotDiv = document.getElementById('plot');
+
+// Activation Functions
+const activations = {
+    sigmoid: z => 1 / (1 + Math.exp(-z)),
+    relu: z => Math.max(0, z),
+    tanh: z => Math.tanh(z),
+    step: z => (z >= 0 ? 1 : 0)
+};
+
+function updateNeuronOutput() {
+    // Read values from controls
+    const x1 = parseFloat(x1Slider.value);
+    const x2 = parseFloat(x2Slider.value);
+    const w1 = parseFloat(w1Slider.value);
+    const w2 = parseFloat(w2Slider.value);
+    const b = parseFloat(bSlider.value);
+    const activationType = activationSelect.value;
+    const activationFunc = activations[activationType];
+
+    // Update display spans
+    x1Value.textContent = x1.toFixed(1);
+    x2Value.textContent = x2.toFixed(1);
+    w1Value.textContent = w1.toFixed(1);
+    w2Value.textContent = w2.toFixed(1);
+    bValue.textContent = b.toFixed(1);
+
+    // Calculate weighted sum (z) and output (y)
+    const z = w1 * x1 + w2 * x2 + b;
+    const y = activationFunc(z);
+
+    // Update the calculation display
+    outputDisplay.innerHTML = `Calculation: \\( z = w_1 x_1 + w_2 x_2 + b = (${w1.toFixed(1)})(${x1.toFixed(1)}) + (${w2.toFixed(1)})(${x2.toFixed(1)}) + (${b.toFixed(1)}) = ${z.toFixed(2)} \\) <br>
+                             Output: \\( y = g(z) = ${activationType}(${z.toFixed(2)}) = ${y.toFixed(3)} \\)`;
+
+    // Update MathJax rendering for the output display
+    if (window.MathJax && window.MathJax.typesetPromise) {
+        window.MathJax.typesetPromise([outputDisplay]);
+    }
+
+    // Update the plot
+    updateActivationPlot(activationType, activationFunc, z, y);
+}
+
+function updateActivationPlot(activationType, activationFunc, currentZ, currentY) {
+    const plotRange = 5; // Plot from -5 to 5
+    const steps = 100;
+    const plotX = [];
+    const plotY = [];
+    for (let i = 0; i <= steps; i++) {
+        const val = -plotRange + (2 * plotRange * i) / steps;
+        plotX.push(val);
+        plotY.push(activationFunc(val));
+    }
+
+    const traceLine = {
+        x: plotX,
+        y: plotY,
+        mode: 'lines',
+        name: `${activationType}(z)`,
+        line: { color: '#1f77b4' } // Blue line
+    };
+
+    const tracePoint = {
+        x: [currentZ],
+        y: [currentY],
+        mode: 'markers',
+        name: `Current Point (z=${currentZ.toFixed(2)}, y=${currentY.toFixed(3)})`,
+        marker: {
+            color: '#ff7f0e', // Orange marker
+            size: 10,
+            symbol: 'circle'
+        }
+    };
+
+    const layout = {
+        title: `Activation Function: ${activationType}`,
+        xaxis: { title: 'z (Weighted Sum + Bias)', range: [-plotRange - 0.5, plotRange + 0.5] },
+        yaxis: { title: 'y (Neuron Output)', range: [-1.5, 1.5], autorange: true }, // Autorange might be better for ReLU
+        margin: { l: 50, r: 30, b: 50, t: 50, pad: 4 },
+        legend: { x: 0.01, y: 0.99 },
+        hovermode: 'closest'
+    };
+    
+    // Adjust y-axis range specifically for ReLU if needed
+    if (activationType === 'relu') {
+        layout.yaxis.range = [-0.5, plotRange + 0.5]; 
+    }
+    if (activationType === 'step') {
+        layout.yaxis.range = [-0.2, 1.2]; 
+    }
+
+
+    Plotly.react(plotDiv, [traceLine, tracePoint], layout);
+}
+
+// Add event listeners to all controls
+[x1Slider, x2Slider, w1Slider, w2Slider, bSlider, activationSelect].forEach(element => {
+    element.addEventListener('input', updateNeuronOutput);
+});
+
+// Initial call to set up the display and plot
+document.addEventListener('DOMContentLoaded', updateNeuronOutput);
+
+</script>
+
+</body>
+</html> 
