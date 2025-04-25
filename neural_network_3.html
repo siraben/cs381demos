@@ -98,6 +98,14 @@
             <input type="range" id="updateSpeedSlider" min="1" max="50" step="1" value="10" /><br/>
             <span id="updateSpeedValue">10</span><span> steps/frame</span>
         </div>
+       <div class="control-box">
+            <label for="activationSelect">Hidden Activation:</label><br/>
+            <select id="activationSelect">
+                <option value="sigmoid" selected>Sigmoid</option>
+                <option value="tanh">Tanh</option>
+                <option value="relu">ReLU</option>
+            </select>
+        </div>
        <div class="control-box button-group">
           <button id="startBtn">Start Training</button>
           <button id="stopBtn" disabled>Stop Training</button>
@@ -193,6 +201,7 @@ const lrSlider = document.getElementById('lrSlider');
 const lrValue = document.getElementById('lrValue');
 const updateSpeedSlider = document.getElementById('updateSpeedSlider');
 const updateSpeedValue = document.getElementById('updateSpeedValue');
+const activationSelect = document.getElementById('activationSelect');
 const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
 const stepBtn = document.getElementById('stepBtn');
@@ -204,8 +213,22 @@ const decisionBoundaryPlotDiv = document.getElementById('decisionBoundaryPlot');
 const lossPlotDiv = document.getElementById('lossPlotContainer');
 
 // --- Network & Math Functions ---
-const sigmoid = z => 1 / (1 + Math.exp(-z));
-const sigmoidDerivative = y => y * (1 - y); // Takes sigmoid output y
+const activations = {
+    sigmoid: {
+        func: z => 1 / (1 + Math.exp(-z)),
+        derivative: y => y * (1 - y) // Takes sigmoid output y
+    },
+    tanh: {
+        func: z => Math.tanh(z),
+        derivative: y => 1 - y * y // Takes tanh output y
+    },
+    relu: {
+        func: z => Math.max(0, z),
+        derivative: y => (y > 0 ? 1 : 0) // Takes relu output y
+    }
+};
+let currentActivation = activations.sigmoid; // Default
+
 const mseLoss = (y_true, y_pred) => 0.5 * (y_pred - y_true) ** 2;
 const mseLossDerivative = (y_true, y_pred) => y_pred - y_true;
 
@@ -231,30 +254,30 @@ function forwardPass(inputs) {
     const z_h = Array(NUM_HIDDEN).fill(0);
     const a_h = Array(NUM_HIDDEN).fill(0);
     for (let j = 0; j < NUM_HIDDEN; j++) {
+        z_h[j] = biases_h[j]; // Start with bias
         for (let i = 0; i < NUM_INPUTS; i++) {
             z_h[j] += inputs[i] * weights_h[j][i];
         }
-        z_h[j] += biases_h[j];
-        a_h[j] = sigmoid(z_h[j]);
+        a_h[j] = currentActivation.func(z_h[j]); // Use selected activation
     }
 
-    // Output Layer
+    // Output Layer (remains sigmoid)
     const z_o = Array(NUM_OUTPUTS).fill(0);
     const a_o = Array(NUM_OUTPUTS).fill(0);
     for (let k = 0; k < NUM_OUTPUTS; k++) {
+        z_o[k] = bias_o[k]; // Start with bias
         for (let j = 0; j < NUM_HIDDEN; j++) {
             z_o[k] += a_h[j] * weights_o[k][j];
         }
-        z_o[k] += bias_o[k];
-        a_o[k] = sigmoid(z_o[k]);
+        a_o[k] = activations.sigmoid.func(z_o[k]); // Output always sigmoid
     }
 
-    return { z_h, a_h, z_o, a_o }; // Return all intermediate values
+    return { z_h, a_h, z_o, a_o };
 }
 
 function backpropagation(inputs, target, forwardResult) {
     const { z_h, a_h, z_o, a_o } = forwardResult;
-    const y_pred = a_o[0]; // Assuming single output
+    const y_pred = a_o[0];
     const y_true = target;
 
     // Gradients for weights/biases
@@ -263,32 +286,30 @@ function backpropagation(inputs, target, forwardResult) {
     const grad_weights_h = Array(NUM_HIDDEN).fill(0).map(() => Array(NUM_INPUTS).fill(0));
     const grad_biases_h = Array(NUM_HIDDEN).fill(0);
 
-    // Output Layer Gradients
+    // Output Layer Gradients (using sigmoid derivative)
     const delta_o = Array(NUM_OUTPUTS).fill(0);
     for (let k = 0; k < NUM_OUTPUTS; k++) {
-        const error_term = mseLossDerivative(y_true, y_pred); // (y_pred - y_true)
-        const activation_derivative = sigmoidDerivative(a_o[k]); // y_pred * (1 - y_pred)
+        const error_term = mseLossDerivative(y_true, y_pred);
+        const activation_derivative = activations.sigmoid.derivative(a_o[k]); // Output derivative
         delta_o[k] = error_term * activation_derivative;
-
-        grad_bias_o[k] = delta_o[k]; // Bias gradient is just the delta
+        grad_bias_o[k] = delta_o[k];
         for (let j = 0; j < NUM_HIDDEN; j++) {
-            grad_weights_o[k][j] = delta_o[k] * a_h[j]; // Weight gradient
+            grad_weights_o[k][j] = delta_o[k] * a_h[j];
         }
     }
 
-    // Hidden Layer Gradients
+    // Hidden Layer Gradients (using selected activation's derivative)
     const delta_h = Array(NUM_HIDDEN).fill(0);
     for (let j = 0; j < NUM_HIDDEN; j++) {
         let error_prop = 0;
         for (let k = 0; k < NUM_OUTPUTS; k++) {
             error_prop += delta_o[k] * weights_o[k][j];
         }
-        const activation_derivative = sigmoidDerivative(a_h[j]);
+        const activation_derivative = currentActivation.derivative(a_h[j]); // Use selected derivative
         delta_h[j] = error_prop * activation_derivative;
-
-        grad_biases_h[j] = delta_h[j]; // Bias gradient
+        grad_biases_h[j] = delta_h[j];
         for (let i = 0; i < NUM_INPUTS; i++) {
-            grad_weights_h[j][i] = delta_h[j] * inputs[i]; // Weight gradient
+            grad_weights_h[j][i] = delta_h[j] * inputs[i];
         }
     }
 
@@ -477,12 +498,13 @@ function createNetworkSVG() {
     const height = networkSvg.clientHeight;
     const layerX = [width * 0.15, width * 0.5, width * 0.85];
     const nodeRadius = 20;
+    const selectedActivationName = activationSelect.options[activationSelect.selectedIndex].text;
 
     nodeElementsSVG = { inputs: [], hidden: [], output: [] };
-    weightElementsSVG = { h_weights: Array(NUM_HIDDEN).fill(0).map(() => []), o_weights: [] }; // Store text elements
+    weightElementsSVG = { h_weights: Array(NUM_HIDDEN).fill(0).map(() => []), o_weights: [] };
 
-    // Layer Labels
-    ['Input', 'Hidden (Sigmoid)', 'Output (Sigmoid)'].forEach((label, i) => {
+    // Layer Labels - Updated to show selected activation
+    ['Input', `Hidden (${selectedActivationName})`, 'Output (Sigmoid)'].forEach((label, i) => {
         const text = document.createElementNS(svgNS, 'text');
         text.setAttribute('x', layerX[i]); text.setAttribute('y', height * 0.1);
         text.setAttribute('class', 'layer-label'); text.textContent = label;
@@ -521,7 +543,10 @@ function createNetworkSVG() {
         weightText.setAttribute('class', 'weight-text');
         weightText.textContent = weight !== undefined ? weight.toFixed(1) : '?'; // Initial display
         networkSvg.appendChild(weightText);
-        weightArray.push(weightText); // Store text element
+        if (Array.isArray(weightArray)) { // Check if it's an array before pushing
+             weightArray.push(weightText); // Store text element
+        }
+       
     };
 
     // Input -> Hidden
@@ -762,7 +787,7 @@ function resetNetworkAndData() {
     stopTraining();
     initializeWeights();
     generateSelectedDataset(); // Regenerates data and plots initial state
-    createNetworkSVG(); // Recreate SVG with initial weights
+    createNetworkSVG(); // Recreate SVG with correct label and initial weights
     updateNetworkWeightsSVG();
     statusDiv.textContent = 'Status: Ready (Weights Reset & New Data)';
 }
@@ -780,6 +805,11 @@ lrSlider.addEventListener('input', () => {
 updateSpeedSlider.addEventListener('input', () => {
     updateSpeedValue.textContent = updateSpeedSlider.value;
 });
+activationSelect.addEventListener('change', () => {
+    currentActivation = activations[activationSelect.value];
+    console.log(`Hidden activation changed to: ${activationSelect.value}`);
+    resetNetworkAndData(); // Reset weights and data when activation changes
+});
 
 startBtn.addEventListener('click', startTraining);
 stopBtn.addEventListener('click', stopTraining);
@@ -791,6 +821,7 @@ generateDataBtn.addEventListener('click', generateSelectedDataset);
 // --- Initial Setup ---
 document.addEventListener('DOMContentLoaded', () => {
     console.log("Neural Network Demo Part 3 Initializing...");
+    currentActivation = activations[activationSelect.value]; // Set initial activation
     initializeWeights();
     generateSelectedDataset(); // Generate initial dataset and plot
     createNetworkSVG();      // Create the SVG structure
