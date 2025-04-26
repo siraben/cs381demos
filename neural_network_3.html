@@ -64,6 +64,14 @@
     }
     .plot-container { margin-bottom: 20px; }
     .button-group button { margin: 5px; } /* Spacing for buttons */
+
+    /* Style for highlighting selected activation description */
+    #activation-descriptions li.selected-activation {
+        background-color: #e8f4f8;
+        border-left: 4px solid #007bff;
+        padding-left: 10px;
+        margin-left: -14px; /* Adjust for padding+border */
+    }
   </style>
 </head>
 <body>
@@ -74,8 +82,8 @@
   <div class="controls">
         <div class="control-box">
             <label for="numPointsSlider">Points Per Class:</label><br/>
-            <input type="range" id="numPointsSlider" min="20" max="200" step="10" value="50" /><br/>
-            <span id="numPointsValue">50</span>
+            <input type="range" id="numPointsSlider" min="20" max="200" step="10" value="100" /><br/>
+            <span id="numPointsValue">100</span>
         </div>
         <div class="control-box">
             <label for="datasetSelect">Dataset:</label><br/>
@@ -104,6 +112,7 @@
                 <option value="sigmoid" selected>Sigmoid</option>
                 <option value="tanh">Tanh</option>
                 <option value="relu">ReLU</option>
+                <option value="linear">Linear</option>
             </select>
         </div>
        <div class="control-box button-group">
@@ -160,6 +169,33 @@
     </p>
     <p>
         This demo lets you choose a dataset, adjust the learning rate, and observe the network learning the classification boundary shown in the plot below the network diagram. The final plot shows the training loss decreasing over time.
+    </p>
+    <h4>Hidden Layer Activation Functions</h4>
+    <p>
+        The choice of activation function for the hidden layer(s) significantly impacts learning. This demo allows experimenting with:
+        <ul id="activation-descriptions">
+            <li id="desc-sigmoid">
+                <strong>Sigmoid:</strong> \( g(z) = \frac{1}{1 + e^{-z}} \)<br/>
+                <em>Pros:</em> Smooth gradient, output bounded between 0 and 1 (interpretable as probability-like).<br/>
+                <em>Cons:</em> Outputs are not zero-centered. Suffers from the "vanishing gradient" problem for very large or small inputs (gradient becomes near zero), slowing learning. Computationally more expensive than ReLU.
+            </li>
+            <li id="desc-tanh">
+                <strong>Tanh (Hyperbolic Tangent):</strong> \( g(z) = \tanh(z) \)<br/>
+                <em>Pros:</em> Smooth gradient, output bounded between -1 and 1, and is zero-centered (often helps convergence compared to Sigmoid).<br/>
+                <em>Cons:</em> Still suffers from vanishing gradients, though less severely than Sigmoid. Computationally similar to Sigmoid.
+            </li>
+             <li id="desc-relu">
+                <strong>ReLU (Rectified Linear Unit):</strong> \( g(z) = \max(0, z) \)<br/>
+                <em>Pros:</em> Computationally very efficient. Does not suffer from vanishing gradients for positive inputs. Often leads to faster convergence in deep networks.<br/>
+                <em>Cons:</em> Not zero-centered. Can suffer from the "dying ReLU" problem where neurons get stuck outputting 0 if inputs consistently lead to negative \(z\) (gradient becomes 0 for negative inputs).
+            </li>
+             <li id="desc-linear">
+                <strong>Linear:</strong> \( g(z) = z \)<br/>
+                <em>Pros:</em> Simplest possible activation. Does not squash input values.<br/>
+                <em>Cons:</em> A network composed entirely of linear layers is equivalent to a single linear transformation, limiting its ability to model complex non-linear functions. Often used in output layers for regression tasks, but less common in hidden layers for classification.
+            </li>
+        </ul>
+        The output layer neuron always uses Sigmoid in this demo to produce a value between 0 and 1 suitable for binary classification.
     </p>
   </div>
 
@@ -225,6 +261,10 @@ const activations = {
     relu: {
         func: z => Math.max(0, z),
         derivative: y => (y > 0 ? 1 : 0) // Takes relu output y
+    },
+    linear: {
+        func: z => z,
+        derivative: y => 1 // Derivative is constant 1
     }
 };
 let currentActivation = activations.sigmoid; // Default
@@ -432,17 +472,18 @@ function generateSpiral(numPointsPerClass, noise = 0.2) {
     const class0_raw = { x: [], y: [] };
     const class1_raw = { x: [], y: [] };
     const n = numPointsPerClass;
+    const turns = 0.9; // Controls how many turns the spiral makes (Reduced further)
 
     for (let i = 0; i < n; i++) {
         const r0 = i / n * 5; // Radius
-        const t0 = 1.75 * i / n * 2 * Math.PI; // Angle with noise
+        const t0 = turns * i / n * 2 * Math.PI; // Angle based on fraction of total points
         const x0 = r0 * Math.sin(t0) + gaussianRandom() * noise;
         const y0 = r0 * Math.cos(t0) + gaussianRandom() * noise;
         class0_raw.x.push(x0);
         class0_raw.y.push(y0);
 
         const r1 = i / n * 5;
-        const t1 = 1.75 * i / n * 2 * Math.PI + Math.PI; // Angle + 180 deg + noise
+        const t1 = turns * i / n * 2 * Math.PI + Math.PI; // Angle + 180 deg offset
         const x1 = r1 * Math.sin(t1) + gaussianRandom() * noise;
         const y1 = r1 * Math.cos(t1) + gaussianRandom() * noise;
         class1_raw.x.push(x1);
@@ -805,9 +846,25 @@ lrSlider.addEventListener('input', () => {
 updateSpeedSlider.addEventListener('input', () => {
     updateSpeedValue.textContent = updateSpeedSlider.value;
 });
+
+// Function to highlight the selected activation description
+function highlightActivationDescription() {
+    const selectedValue = activationSelect.value;
+    // Remove class from all descriptions first
+    document.querySelectorAll('#activation-descriptions li').forEach(li => {
+        li.classList.remove('selected-activation');
+    });
+    // Add class to the selected one
+    const selectedLi = document.getElementById(`desc-${selectedValue}`);
+    if (selectedLi) {
+        selectedLi.classList.add('selected-activation');
+    }
+}
+
 activationSelect.addEventListener('change', () => {
     currentActivation = activations[activationSelect.value];
     console.log(`Hidden activation changed to: ${activationSelect.value}`);
+    highlightActivationDescription(); // Highlight the text
     resetNetworkAndData(); // Reset weights and data when activation changes
 });
 
@@ -827,9 +884,12 @@ document.addEventListener('DOMContentLoaded', () => {
     createNetworkSVG();      // Create the SVG structure
     updateNetworkWeightsSVG(); // Display initial weights
     plotLoss(); // Initial empty loss plot
-    lrValue.textContent = parseFloat(lrSlider.value).toFixed(1); // Set initial display
-    updateSpeedValue.textContent = updateSpeedSlider.value; // Set initial display
-    numPointsValue.textContent = numPointsSlider.value; // Set initial display
+    highlightActivationDescription(); // Highlight initial selection
+
+    // Set initial slider display values
+    lrValue.textContent = parseFloat(lrSlider.value).toFixed(1);
+    updateSpeedValue.textContent = updateSpeedSlider.value;
+    numPointsValue.textContent = numPointsSlider.value;
 
     console.log("Initialization complete.");
 });
